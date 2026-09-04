@@ -1,6 +1,5 @@
 package laura.ui.widget;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import laura.config.ThemeInfo;
 import laura.core.Laura;
 import laura.core.Interface;
@@ -12,19 +11,14 @@ import laura.setting.BooleanSetting;
 import laura.ui.element.DragInfo;
 import laura.util.MathUtil;
 import laura.util.ServerUtil;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.BufferRenderer;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormat;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
-import org.joml.Matrix4f;
 import platform.inject.accessors.BossBarHudAccessor;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -38,7 +32,9 @@ public class WatermarkWidget extends Widget implements Interface {
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
 
     private static final String BRAND = "Laura Client";
-    private static final Identifier LOGO_ID = Identifier.of("lauraclient", "watermark_logo"); // фикс: конструктор приватный
+    // лого по умолчанию берётся из ресурсов мода; файл рядом с игрой остаётся опциональным оверрайдом
+    private static final Identifier LOGO_ID = Identifier.of("laura", "icon.png");
+    private static final Identifier OVERRIDE_LOGO_ID = Identifier.of("laura", "watermark_logo");
 
     private static final String[] LOGO_PATHS = {"icon.png",  "laura/icon.png"};
 
@@ -52,6 +48,8 @@ public class WatermarkWidget extends Widget implements Interface {
     private float smoothedFps;
     private float logoRatio = 1.0f;
     private boolean logoLoaded;
+    private boolean logoAttempted;
+    private Identifier logoId;
 
     private String lastFps = "";
     private String oldFps = "";
@@ -72,32 +70,50 @@ public class WatermarkWidget extends Widget implements Interface {
         j().setWidget(this);
         j().setDragStatus(2);
         a(this.sideDisplay, this.showPing, this.showFps, this.showTime, this.showServer, this.animateDigits);
-        loadLogo();
+        // загрузка лого выполняется лениво при первом рендере: в конструкторе ресурс-менеджер ещё не готов
     }
 
     private void loadLogo() {
+        this.logoAttempted = true;
+        // 1) опциональный оверрайд: файл рядом с игрой (icon.png или laura/icon.png)
         try {
             File file = null;
             for (String path : LOGO_PATHS) {
                 File f = new File(path);
                 if (f.isFile()) { file = f; break; }
             }
-            if (file == null) {
-                System.out.println("[Watermark] лого не найдено (" + String.join(", ", LOGO_PATHS) + "), рисую глиф");
+            if (file != null) {
+                NativeImage image = NativeImage.read(new FileInputStream(file));
+                this.logoRatio = (float) image.getWidth() / (float) image.getHeight();
+                NativeImageBackedTexture texture = new NativeImageBackedTexture(image);
+                // loadLogo вызывается с рендер-потока, так что регистрируем текстуру синхронно
+                mc.getTextureManager().registerTexture(OVERRIDE_LOGO_ID, texture);
+                this.logoId = OVERRIDE_LOGO_ID;
+                this.logoLoaded = true;
                 return;
             }
-            NativeImage image = NativeImage.read(new FileInputStream(file));
-            this.logoRatio = (float) image.getWidth() / (float) image.getHeight();
-            NativeImageBackedTexture texture = new NativeImageBackedTexture(image);
-            mc.execute(() -> mc.getTextureManager().registerTexture(LOGO_ID, texture));
-            this.logoLoaded = true;
+            System.out.println("[Watermark] лого рядом с игрой не найдено (" + String.join(", ", LOGO_PATHS) + "), пробую ресурсы");
         } catch (Exception ex) {
-            System.out.println("[Watermark] не удалось загрузить лого: " + ex);
+            System.out.println("[Watermark] не удалось загрузить лого из файла: " + ex);
+        }
+
+        // 2) дефолт: лого из ресурсов мода laura:icon.png через ресурс-менеджер
+        try (InputStream in = mc.getResourceManager().open(LOGO_ID)) {
+            NativeImage image = NativeImage.read(in);
+            this.logoRatio = (float) image.getWidth() / (float) image.getHeight();
+            this.logoId = LOGO_ID;
+            this.logoLoaded = true;
+            System.out.println("[Watermark] лого загружено из ресурсов: " + LOGO_ID);
+        } catch (Exception ex) {
+            System.out.println("[Watermark] лого из ресурсов недоступно, рисую глиф: " + ex);
         }
     }
 
     @Override
     public void a(DrawEvent event) {
+        if (!this.logoAttempted) {
+            loadLogo();
+        }
         d().a(true);
         d().a(0.0f, 1.0f, 0.3f, EasingList.g, event.g());
 
@@ -187,9 +203,9 @@ public class WatermarkWidget extends Widget implements Interface {
         float cursor = x + startPadding;
         float textY = y + ((this.d - Fonts.e.a(this.e)) / 2.0f) - 0.5f;
 
-        // 1. лого: своя картинка (или глиф дельты, если файла нет)
+        // 1. лого: иконка клиента laura:icon.png (или глиф, если её нет совсем)
         if (this.logoLoaded) {
-            drawLogoTexture(event, cursor, y + (this.d - logoH) / 2.0f, logoW, logoH);
+            event.getDraw2DProcessor().a(event.h(), this.logoId, cursor, y + ((this.d - logoH) / 2.0f), logoW, logoH, 2.0f, -1);
         } else {
             float logoSize = this.e + 1.0f;
             Fonts.a.a(event.h(), "a", cursor, y + ((this.d - logoSize) / 2.0f), logoSize, primaryColor);
@@ -222,28 +238,6 @@ public class WatermarkWidget extends Widget implements Interface {
         }
 
         super.a(event);
-    }
-
-    // ============ лого через текстуру (новый рендер-API 1.21.5+) ============
-
-    private void drawLogoTexture(DrawEvent event, float x, float y, float w, float h) {
-        Matrix4f matrix = event.h().peek().getPositionMatrix();
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderTexture(0, LOGO_ID); // bindTexture убрали, текстуру биндит это
-
-        BufferBuilder buffer = Tessellator.getInstance()
-                .begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_TEXTURE);
-
-        buffer.vertex(matrix, x, y + h, 0.0f).texture(0.0f, 1.0f);
-        buffer.vertex(matrix, x + w, y + h, 0.0f).texture(1.0f, 1.0f);
-        buffer.vertex(matrix, x + w, y, 0.0f).texture(1.0f, 0.0f);
-        buffer.vertex(matrix, x, y, 0.0f).texture(0.0f, 0.0f);
-
-        BufferRenderer.drawWithGlobalProgram(buffer.end()); // .end() -> BuiltBuffer
-
-        RenderSystem.disableBlend();
     }
 
     // ============ анимация цифр ============
