@@ -42,6 +42,10 @@ public class Ambience extends Module {
         a(this.c, this.b, this.d, this.e, this.f, this.g);
     }
 
+    public BooleanSetting q() {
+        return this.d;
+    }
+
     @EventTarget
     public void a(AmbienceEvent.c event) {
         long jB;
