@@ -183,8 +183,8 @@ public class StationScreen extends Screen {
         this.c.x = this.b.x + ((this.b.z - this.c.z) / 2.0f);
         this.c.y = this.b.y + 8.0f;
         draw.a(context.getMatrices(), this.c.x, this.c.y, this.c.z, this.c.w, 6.0f, 0.5f, ColorUtil.convertToARGB(255, 255, 255, 4));
-        Fonts.a.a(context.getMatrices(), "a", this.b.x + 8.0f, this.c.y + ((this.c.w - Fonts.a.a(12.0f)) / 2.0f), 12.0f, ColorUtil.applyAlphaToColor(theme.a(ThemeInfo.PRIMARY).toIntColor(), 0.75f));
-        float separatorX = this.b.x + 8.0f + Fonts.a.a("a", 12.0f) + 8.0f;
+        draw.a(context.getMatrices(), Identifier.of("laura", "icon.png"), this.b.x + 8.0f, this.c.y + ((this.c.w - 12.0f) / 2.0f), 12.0f, 12.0f, 3.0f, -1);
+        float separatorX = this.b.x + 8.0f + 12.0f + 8.0f;
         draw.a(context.getMatrices(), separatorX, this.c.y + ((this.c.w - 8.0f) / 2.0f), 0.75f, 8.0f, 0.0f, ColorUtil.convertToARGB(255, 255, 255, 25));
         Fonts.c.a(context.getMatrices(), "github.com/Ironcarrier228/Laura-Client 1.21.4", separatorX + 8.0f, (this.c.y + ((this.c.w - Fonts.c.a(6.75f)) / 2.0f)) - 0.5f, 6.75f, theme.a(ThemeInfo.TEXT_DISABLED).toIntColor());
         float avatarX = ((this.b.x + this.b.z) - 12.0f) - 8.0f;

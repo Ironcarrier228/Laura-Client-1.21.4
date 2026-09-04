@@ -1,1 +1,193 @@
-# Laura-Client-1.21.4
+<p align="center">
+  <img src="src/main/resources/assets/laura/icon.png" alt="Laura Client" width="140" height="140" />
+</p>
+
+<h1 align="center">Laura Client</h1>
+
+<p align="center">
+  <b>Анархический клиент для Minecraft 1.21.4</b><br/>
+  <i>Модульный, с кастомными shader-ами, встроенным GUI-конфигом, альт-менеджером и своей темой.</i>
+</p>
+
+<p align="center">
+  <img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-1.21.4-4e7b3f?logo=minecraft&logoColor=white" />
+  <img alt="Java" src="https://img.shields.io/badge/Java-21+-ef4820?logo=openjdk&logoColor=white" />
+  <img alt="Fabric" src="https://img.shields.io/badge/Fabric-0.18.4-844fba?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA4klEQVR42u3WQQrCQBAF0P9GZ7p0t7SrfQfP4EJcCP9qIyY9e3r6PytJNpMhXq4QgpYtW/Y8EBAgQIAAAQIEvksAARcCEICAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAECBAgQIECAAAEC/xDwATk4Jx8mXqJ1AAAAAElFTkSuQmCC" />
+  <img alt="Fabric API" src="https://img.shields.io/badge/Fabric%20API-0.119.4%2B1.21.4-8f5e2e" />
+  <img alt="Build" src="https://img.shields.io/badge/build-gradle%20loom-2f7d34" />
+</p>
+
+<p align="center">
+  <a href="#features">Возможности</a> ·
+  <a href="#modules">Модули</a> ·
+  <a href="#commands">Команды</a> ·
+  <a href="#installation">Установка</a> ·
+  <a href="#build">Сборка</a> ·
+  <a href="#usage">Использование</a> ·
+  <a href="#stack">Стек</a>
+</p>
+
+---
+
+## 🧭 О проекте
+
+**Laura Client** — клиентский мод для Minecraft **1.21.4** (Fabric). Ориентирован на
+анархические сервера и автоматизацию рутинных действий, но при этом имеет аккуратное
+кастомное меню вместо стандартного и полностью настраиваемую инфо-панель (watermark).
+
+Ключевые особенности:
+
+- 🎨 **Кастомный GUI** — собственное главное меню, радиальное меню, альт-менеджер и
+  «клик-гуи» (StationScreen) с иконкой клиента.
+- 🛠️ **102 модуля** в 5 категориях (Combat, Movement, Render, Player, Misc) с настройками.
+- ✨ **Собственные core-шейдеры** (blur, noise, rect, text), регистрируемые через
+  `ShaderProgramKeys` до первого релоада ресурсов.
+- 🖥️ **Кастомный рендер** — MSDF-шрифты, иконки, плавные анимации, эффекты частиц.
+- ⚙️ **Гибкая конфигурация** — сохранение/загрузка конфигов, макросы, бинды, layout панелей.
+- 🔌 **Свой бэкенд** — защищённый WebSocket-клиент с криптографической подписью пакетов,
+  интеграция с Discord Rich Presence.
+- 🎵 **Настраиваемый звук** и **Streamer Mode** для приватности.
+
+> **⚠️ Статус:** проект в активной разработке. На часть модулей, завязанных на бэкенд
+> (например, `Captcha Solver`), могут влиять внешние сервера.
+
+---
+
+## ✨ Возможности
+
+### 🖥️ GUI и внешний вид
+- **Главное меню** (заменяет ванильное) — фоновый блюр, кастомные шрифты, кнопки.
+- **Радиальное меню** и **Alt-менеджер** для быстрого переключения аккаунтов.
+- **Infra-панель (watermark)**: задержка, FPS, время, сервер + логотип `laura:icon.png` из ресурсов.
+- **Кастомные шрифты**: `gt_regular`, `sf_regular`, `sf_medium`, `onest_regular`, `icons`.
+- **Настраиваемый layout** панелей (`HUD`) с сохранением позиций — `.layout`.
+
+### 🛡️ Бой и автоматизация
+- **Combat**: Aura, Trigger Bot, Anti Bot, Velocity, Auto Totem, Hit Boxes, Mace Helper…
+- **Movement**: Fly, Scaffold, Safe Walk, Speed-подобные модули, Elytra, Free Camera…
+- **Misc**: Auto Buy (FunPay/магазин), Collector, Auto Warden, Ancient/Apple Farmer, Nuker, X Ray…
+- **Player**: Auto Eat, Auto Fish, Chest Stealer, Fast Load/EXP, Auto Tool, Death Coords…
+
+### 🧩 Модульные команды и конфиги
+Полный список команд — в [разделе ниже](#commands). Конфиги хранятся в `.json`,
+управляются через `.cfg <save|load|list|reset|remove|dir>`.
+
+---
+
+## 📦 Модули
+
+102 модуля, сгруппированных по категориям:
+
+| Категория | Описание | Кол-во |
+|---|---|---|
+| ⚔️ **Combat** | Атака, прицел, защита, анти-кик | 20 |
+| 🏃 **Movement** | Полёт, движение, элитра, камера | 16 |
+| ✨ **Render** | Видение, ESP, шейдеры, интерфейс | 21 |
+| 🧍 **Player** | Автоматизация, инвентарь, утилиты | 25 |
+| 🛠️ **Misc** | Фарм, серверные помощники, чат, звук | 20 |
+| **Итого** | | **102** |
+
+Все модули настраиваются через GUI и имеют горячие клавиши (бинды). Точки входа модулей
+описаны аннотацией `@ModuleRegister(name, description, category)`.
+
+---
+
+## 💬 Команды
+
+Все команды вызываются с префиксом `.` (точка) в игровом чате. Команды построены на
+**Brigadier** (`net.minecraft.command.CommandSource`).
+
+| Команда | Описание |
+|---|---|
+| `.ah` | Аукцион / торговля |
+| `.bind` | Привязка модуля к клавише — `.bind add <модуль> <клавиша>` |
+| `.blockesp` | ESP на блоки — `.blockesp add <блок> [цвет]` |
+| `.ccc` | Клиентские команды |
+| `.cfg` | Конфиги — `.cfg save\|load\|list\|reset\|remove\|dir <имя>` |
+| `.friend` | Друзья — `.friend add\|remove\|list\|clear <ник>` |
+| `.gps` | Координаты — `.gps <x> <z>`, `.gps off` |
+| `.hclip` | Горизонтальный телепорт — `.hclip <число\|forward\|back>` |
+| `.layout` | Схема HUD-панелей — `.layout save\|load\|remove\|list\|clear <название>` |
+| `.macros` | Макросы клавиш — `.macros add <клавиша> <команда>` |
+| `.rct` | Радиальное меню |
+| `.staff` | Стафф-лист — `.staff add\|remove\|list\|clear <ник>` |
+| `.vclip` | Вертикальный телепорт — `.vclip <число\|up\|down>` |
+| `.warden` | Анархия-сервера — `.warden add\|remove\|list\|clear <анархия>` |
+| `.way` | Точки (waypoints) — `.way add\|me\|remove\|list\|clear\|event` |
+
+---
+
+## 🚀 Установка
+
+### Требования
+| Зависимость | Версия |
+|---|---|
+| [Minecraft](https://www.minecraft.net/) | **1.21.4** |
+| [Fabric Loader](https://fabricmc.net/use/installer/) | **≥ 0.16.5** (заявлено `0.18.4`) |
+| [Fabric API](https://modrinth.com/mod/fabric-api) | **0.119.4+1.21.4** |
+| Java | **21+** |
+
+### Готовый JAR
+1. Соберите или скачайте собранный `laura-client-*.jar`.
+2. Скопируйте его в папку `mods/` вашего инстанса **1.21.4**.
+3. Убедитесь, что установлен Fabric Loader и **Fabric API**.
+4. Запустите игру.
+
+---
+
+## 🔨 Сборка из исходников
+
+Проект использует **Fabric Loom** (gradle). Требуется JDK 21.
+
+```bash
+# Локальный запуск с dev-окружением (клиент)
+./gradlew runClient
+
+# Чистая сборка (JAR будет в build/libs/)
+./gradlew build
+
+# Собрать только JAR
+./gradlew jar
+```
+
+Собранный артефакт: `build/libs/laura-client-<version>.jar`.
+
+> **Примечание.** При первом запуске Gradle скачает зависимости из Maven Central и
+> `https://maven.fabricmc.net/`, а Loom подготовит тиры `minecraft` и `yarn`.
+
+---
+
+## 🎮 Использование
+
+- **Открыть GUIScreen**: нажмите **Right Shift** (клавиша `344`) при закрытом экране —
+  появится панель клиента (MainScreen / GUIScreen).
+- **Главное меню**: клиент заменяет ванильный `TitleScreen` (mixin `TitleScreenMixin`).
+- **Alt-менеджер**: в главном меню есть кнопка перехода в `AltScreen`.
+- **Настройка модулей**: в GUI, либо через `.bind` и `.cfg`.
+- **Инность с бэкендом**: клиент подключается к защищённому WebSocket-серверу для
+  синхронизации, Discord-активности и части модулей (auth — по токену).
+
+---
+
+## 🛠️ Технический стек
+
+- **Minecraft 1.21.4** + **Fabric Loader / Fabric API** (`ClientModInitializer`).
+- **Gradle + Fabric Loom** (`${loom_version}`), Java 21, `-Xmaxerrs`.
+- **Библиотеки**: Gson, Log4j, Java-WebSocket, Javassist, Reflections, GeoClib, jsoup и др.
+- **Файлы**: `fabric.mod.json`, `laura.mixins.json`, `laura.accesswidener`, кастомные core-шейдеры.
+- **Архитектура**: пакеты `laura.*` (core, module, ui, render, config, command, network, cosmetic,
+  discord) + `platform.*` (initializer, mixins, accessors) + `baritone.*` (API).
+
+---
+
+## 📄 Лицензия
+
+Проект распространяется под **Minecraft EULA** (указано в `fabric.mod.json`). Используйте
+в соответствии с правилами Minecraft и серверов, на которых играете.
+
+---
+
+<p align="center">
+  Сделано с ❤️ для Minecraft 1.21.4.<br/>
+  <a href="https://github.com/Ironcarrier228/Laura-Client-1.21.4">github.com/Ironcarrier228/Laura-Client-1.21.4</a>
+</p>
