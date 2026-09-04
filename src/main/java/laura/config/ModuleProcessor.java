@@ -142,6 +142,10 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
     private final AutoBuy ba = new AutoBuy();
     private final AutoLeave bb = new AutoLeave();
     private final Velocity bc = new Velocity();
+    private final DamageIndicator damageIndicator = new DamageIndicator();
+    private final ElectricArcs electricArcs = new ElectricArcs();
+    private final Trails trails = new Trails();
+    private final PulseRings pulseRings = new PulseRings();
     private Interface bd;
 
     public static void a(JSONObject obj, Module module) {
@@ -169,7 +173,8 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
                 this.l, this.F, this.G, this.H, this.B, this.C, this.R, this.D, this.X, this.j, this.M, this.ay, this.L,
                 this.K, this.o, this.E, this.ae, this.v, this.ac, this.af, this.T, this.ai, this.ab, this.aa, this.O,
                 this.p, this.w, this.bd, this.at, this.au, this.aB, this.aO, this.e, this.aN, this.aP, this.aU, this.aV,
-                this.aW, this.aX, this.aZ, this.ba, this.bb, this.Y);
+                this.aW, this.aX, this.aZ, this.ba, this.bb, this.Y, this.damageIndicator, this.electricArcs,
+                this.trails, this.pulseRings);
         super.setup();
     }
 
@@ -849,6 +854,22 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
 
     public Velocity bc() {
         return this.bc;
+    }
+
+    public DamageIndicator be() {
+        return this.damageIndicator;
+    }
+
+    public ElectricArcs bf() {
+        return this.electricArcs;
+    }
+
+    public Trails bg() {
+        return this.trails;
+    }
+
+    public PulseRings bh() {
+        return this.pulseRings;
     }
 
     public Interface bd() {
