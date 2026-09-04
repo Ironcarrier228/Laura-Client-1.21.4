@@ -1,15 +1,9 @@
 {
-  "vertex": "delta:core/noise/noise_shader",
-  "fragment": "delta:core/noise/noise_shader",
+  "vertex": "laura:core/blur/kawase",
+  "fragment": "laura:core/blur/upscale",
   "samplers": [
     {
       "name": "Sampler0"
-    },
-    {
-      "name": "Sampler1"
-    },
-    {
-      "name": "Sampler2"
     }
   ],
   "uniforms": [
@@ -60,22 +54,20 @@
       ]
     },
     {
-      "name": "TintColor",
+      "name": "uHalfTexelSize",
       "type": "float",
-      "count": 4,
+      "count": 2,
       "values": [
-        0.8,
-        0.1,
-        0.1,
-        0.6
+        0.0,
+        0.0
       ]
     },
     {
-      "name": "Time",
+      "name": "uOffset",
       "type": "float",
       "count": 1,
       "values": [
-        0.0
+        1.0
       ]
     }
   ]

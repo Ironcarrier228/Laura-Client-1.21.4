@@ -1,7 +1,11 @@
 {
-  "vertex": "delta:core/rect/rect",
-  "fragment": "delta:core/rect/rect",
-  "samplers": [],
+  "vertex": "laura:core/rect/texture_rect",
+  "fragment": "laura:core/rect/texture_rect",
+  "samplers": [
+    {
+      "name": "Sampler0"
+    }
+  ],
   "uniforms": [
     {
       "name": "ModelViewMat",
@@ -75,14 +79,6 @@
       "count": 1,
       "values": [
         1.0
-      ]
-    },
-    {
-      "name": "uOutlineWidth",
-      "type": "float",
-      "count": 1,
-      "values": [
-        0.0
       ]
     }
   ]

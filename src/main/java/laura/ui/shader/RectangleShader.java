@@ -1,8 +1,6 @@
 package laura.ui.shader;
 
 import net.minecraft.client.gl.Uniform;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
 import org.joml.Vector4f;
 
 public class RectangleShader extends Shader {
@@ -12,7 +10,7 @@ public class RectangleShader extends Shader {
     public Uniform f;
 
     public RectangleShader() {
-        super(Identifier.of("laura", "core/rect/rect"), VertexFormats.POSITION_COLOR);
+        super(ShaderKeys.RECT);
     }
 
     @Override

@@ -1,6 +1,6 @@
 {
-  "vertex": "delta:core/rect/blurred_rect",
-  "fragment": "delta:core/rect/blurred_rect",
+  "vertex": "laura:core/rect/blurred_rect",
+  "fragment": "laura:core/rect/blurred_rect",
   "samplers": [
     {
       "name": "Sampler0"

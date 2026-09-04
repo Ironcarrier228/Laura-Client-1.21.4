@@ -1,7 +1,6 @@
 package laura.ui.shader;
 
 import net.minecraft.client.gl.Uniform;
-import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.util.Identifier;
 import org.joml.Vector4f;
@@ -15,7 +14,7 @@ public class TextureShader extends Shader {
     public Uniform e;
 
     public TextureShader() {
-        super(Identifier.of("laura", "core/rect/texture_rect"), VertexFormats.POSITION_TEXTURE_COLOR);
+        super(ShaderKeys.TEXTURE_RECT);
     }
 
     @Override

@@ -1,22 +1,22 @@
 #version 150
 
-#moj_import <delta:common.glsl>
+#moj_import <laura:common.glsl>
 
 in vec3 Position;
-in vec2 UV0;
 in vec4 Color;
+in vec2 UV0;
 
 uniform mat4 ModelViewMat;
 uniform mat4 ProjMat;
 
 out vec2 FragCoord;
-out vec2 TexCoord;
 out vec4 FragColor;
+out vec2 TexCoord;
 
 void main() {
     FragCoord = rvertexcoord(gl_VertexID);
-    TexCoord = UV0;
     FragColor = Color;
+    TexCoord = UV0;
 
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
 }

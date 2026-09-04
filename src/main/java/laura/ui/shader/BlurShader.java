@@ -8,7 +8,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gl.*;
 import net.minecraft.client.render.*;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.Identifier;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
@@ -32,10 +31,10 @@ public class BlurShader extends Shader implements Interface {
     public Uniform m;
 
     public BlurShader() {
-        super(Identifier.of("laura", "core/rect/blurred_rect"), VertexFormats.POSITION_TEXTURE_COLOR);
+        super(ShaderKeys.BLURRED_RECT);
         this.n = new ArrayList<>();
-        this.o = new ShaderProgramKey(Identifier.of("laura", "core/blur/upscale"), VertexFormats.POSITION, Defines.EMPTY);
-        this.p = new ShaderProgramKey(Identifier.of("laura", "core/blur/downscale"), VertexFormats.POSITION, Defines.EMPTY);
+        this.o = ShaderKeys.BLUR_UPSCALE;
+        this.p = ShaderKeys.BLUR_DOWNSCALE;
         EventManager.a(this);
     }
 
@@ -85,18 +84,24 @@ public class BlurShader extends Shader implements Interface {
 
     private void a(MatrixStack matrixStack, ShaderProgramKey shaderKey, Framebuffer source, Framebuffer destination, int pass, int offset) {
         destination.beginWrite(false);
-        RenderSystem.setShaderTexture(0, source.getColorAttachment());
-        ShaderProgram shader = RenderSystem.setShader(shaderKey);
-        GlUniform class_284VarMethod_34582 = shader.getUniform("uHalfTexelSize");
-        GlUniform class_284VarMethod_34583 = shader.getUniform("uOffset");
-        if (class_284VarMethod_34582 != null) {
-            class_284VarMethod_34582.set(0.5f / source.textureWidth, 0.5f / source.textureHeight);
+        try {
+            RenderSystem.setShaderTexture(0, source.getColorAttachment());
+            ShaderProgram shader = RenderSystem.setShader(shaderKey);
+            if (shader == null) {
+                return;
+            }
+            GlUniform class_284VarMethod_34582 = shader.getUniform("uHalfTexelSize");
+            GlUniform class_284VarMethod_34583 = shader.getUniform("uOffset");
+            if (class_284VarMethod_34582 != null) {
+                class_284VarMethod_34582.set(0.5f / source.textureWidth, 0.5f / source.textureHeight);
+            }
+            if (class_284VarMethod_34583 != null) {
+                class_284VarMethod_34583.set(offset * (pass / 3.0f));
+            }
+            a(matrixStack.peek().getPositionMatrix());
+        } finally {
+            destination.endWrite();
         }
-        if (class_284VarMethod_34583 != null) {
-            class_284VarMethod_34583.set(offset * (pass / 3.0f));
-        }
-        a(matrixStack.peek().getPositionMatrix());
-        destination.endWrite();
     }
 
     private void a(Matrix4f matrix4f) {
