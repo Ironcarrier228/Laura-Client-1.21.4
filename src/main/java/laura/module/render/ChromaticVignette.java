@@ -136,8 +136,8 @@ public class ChromaticVignette extends Module {
         if (alpha <= 0.01f) {
             return;
         }
-        a(matrices, draw, width, height, fringe, ColorUtil.convertToARGB(255, 44, 44), alpha, 0.0f);
-        a(matrices, draw, width, height, fringe, ColorUtil.convertToARGB(44, 92, 255), alpha, 1.2f * strength);
+        a(matrices, draw, width, height, fringe, ColorUtil.convertToARGB(255, 44, 44, 255), alpha, 0.0f);
+        a(matrices, draw, width, height, fringe, ColorUtil.convertToARGB(44, 92, 255, 255), alpha, 1.2f * strength);
     }
 
     private void a(MatrixStack matrices, Draw2DProcessor draw, float width, float height, float band, int color,
