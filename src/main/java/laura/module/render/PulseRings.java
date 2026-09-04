@@ -108,7 +108,7 @@ public class PulseRings extends Module {
                 a(event, landing.c, radius * (0.35f + progress), ColorUtil.applyAlphaToColor(color, 0.85f * (1.0f - progress)), 1.5f);
             }
         }
-        if (this.b.a("Пульс под целью").c().booleanValue() && mc.player.crosshairTarget instanceof EntityHitResult hit
+        if (this.b.a("Пульс под целью").c().booleanValue() && mc.crosshairTarget instanceof EntityHitResult hit
                 && hit.getEntity() != null && hit.getEntity() != mc.player && hit.getEntity().isAlive()) {
             float pulse = (now % 1000L) / 1000.0f;
             pulse = (pulse * this.d.c().floatValue()) % 1.0f;
