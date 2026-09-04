@@ -1,11 +1,7 @@
 {
-  "vertex": "delta:core/text/text",
-  "fragment": "delta:core/text/text",
-  "samplers": [
-    {
-      "name": "Sampler0"
-    }
-  ],
+  "vertex": "laura:core/rect/rect",
+  "fragment": "laura:core/rect/gradient_rect",
+  "samplers": [],
   "uniforms": [
     {
       "name": "ModelViewMat",
@@ -54,47 +50,16 @@
       ]
     },
     {
-      "name": "uRange",
+      "name": "uSize",
       "type": "float",
-      "count": 1,
+      "count": 2,
       "values": [
+        0.0,
         0.0
       ]
     },
     {
-      "name": "uThickness",
-      "type": "float",
-      "count": 1,
-      "values": [
-        0.0
-      ]
-    },
-    {
-      "name": "uSmoothness",
-      "type": "float",
-      "count": 1,
-      "values": [
-        0.0
-      ]
-    },
-    {
-      "name": "uOutline",
-      "type": "int",
-      "count": 1,
-      "values": [
-        0
-      ]
-    },
-    {
-      "name": "uOutlineThickness",
-      "type": "float",
-      "count": 1,
-      "values": [
-        0.0
-      ]
-    },
-    {
-      "name": "uOutlineColor",
+      "name": "uRadius",
       "type": "float",
       "count": 4,
       "values": [
@@ -105,27 +70,66 @@
       ]
     },
     {
-      "name": "uFadeEnabled",
-      "type": "int",
-      "count": 1,
+      "name": "uColorModulator",
+      "type": "float",
+      "count": 4,
       "values": [
-        0
+        1.0,
+        1.0,
+        1.0,
+        1.0
       ]
     },
     {
-      "name": "uFadeStart",
+      "name": "uSmoothness",
       "type": "float",
       "count": 1,
       "values": [
-        0.0
+        1.0
       ]
     },
     {
-      "name": "uFadeEnd",
+      "name": "uTopLeftColor",
       "type": "float",
-      "count": 1,
+      "count": 4,
       "values": [
-        0.0
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "name": "uBottomLeftColor",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "name": "uTopRightColor",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "name": "uBottomRightColor",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
       ]
     }
   ]

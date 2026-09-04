@@ -1,8 +1,6 @@
 package laura.ui.shader;
 
 import net.minecraft.client.gl.Uniform;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.util.Identifier;
 import org.joml.Vector4f;
 
 public class GradientShader extends Shader {
@@ -15,7 +13,7 @@ public class GradientShader extends Shader {
     public Uniform i;
 
     public GradientShader() {
-        super(Identifier.of("laura", "core/rect/gradient_rect"), VertexFormats.POSITION_COLOR);
+        super(ShaderKeys.GRADIENT_RECT);
     }
 
     @Override

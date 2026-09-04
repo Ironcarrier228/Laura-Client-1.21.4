@@ -13,8 +13,12 @@ public abstract class Shader {
     protected final ShaderProgramKey a;
     protected ShaderProgram b;
 
+    public Shader(ShaderProgramKey key) {
+        this.a = key;
+    }
+
     public Shader(Identifier identifier, VertexFormat vertexFormat) {
-        this.a = new ShaderProgramKey(identifier, vertexFormat, Defines.EMPTY);
+        this(new ShaderProgramKey(identifier, vertexFormat, Defines.EMPTY));
     }
 
     protected abstract void b();

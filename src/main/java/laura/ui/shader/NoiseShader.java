@@ -9,21 +9,19 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gl.SimpleFramebuffer;
 import net.minecraft.client.gl.Uniform;
 import net.minecraft.client.render.*;
-import net.minecraft.util.Identifier;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 
 import java.awt.*;
 
 public class NoiseShader extends Shader implements Interface {
-    private static final Identifier c = Identifier.of("laura", "core/noise/noise_shader");
     private final Matrix4f d;
     private SimpleFramebuffer e;
     private Uniform f;
     private Uniform g;
 
     public NoiseShader() {
-        super(c, VertexFormats.POSITION_COLOR);
+        super(ShaderKeys.NOISE);
         this.d = new Matrix4f();
         EventManager.a(this);
     }

@@ -1,9 +1,9 @@
 package laura.render;
 
 import laura.ui.shader.GradientUtil;
+import laura.ui.shader.ShaderKeys;
 import laura.util.ChatUtil;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.gl.Defines;
 import net.minecraft.client.gl.ShaderProgram;
 import net.minecraft.client.gl.ShaderProgramKey;
 import net.minecraft.client.render.*;
@@ -11,14 +11,13 @@ import net.minecraft.client.texture.AbstractTexture;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import org.joml.Matrix4f;
 import platform.client.processors.draw.fonts.FontData;
 
 import java.util.*;
 
 public class Font {
-    private final ShaderProgramKey shaderKey = new ShaderProgramKey(Identifier.of("laura", "core/text/text"), VertexFormats.POSITION_TEXTURE_COLOR, Defines.EMPTY);
+    private final ShaderProgramKey shaderKey = ShaderKeys.TEXT;
     private final String fontName;
     private final AbstractTexture fontTexture;
     private final FontData.AtlasData atlasData;

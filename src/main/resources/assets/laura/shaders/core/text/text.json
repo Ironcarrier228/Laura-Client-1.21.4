@@ -1,6 +1,6 @@
 {
-  "vertex": "delta:core/rect/texture_rect",
-  "fragment": "delta:core/rect/texture_rect",
+  "vertex": "laura:core/text/text",
+  "fragment": "laura:core/text/text",
   "samplers": [
     {
       "name": "Sampler0"
@@ -54,16 +54,47 @@
       ]
     },
     {
-      "name": "uSize",
+      "name": "uRange",
       "type": "float",
-      "count": 2,
+      "count": 1,
       "values": [
-        0.0,
         0.0
       ]
     },
     {
-      "name": "uRadius",
+      "name": "uThickness",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "uSmoothness",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "uOutline",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "uOutlineThickness",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
+      ]
+    },
+    {
+      "name": "uOutlineColor",
       "type": "float",
       "count": 4,
       "values": [
@@ -74,11 +105,27 @@
       ]
     },
     {
-      "name": "uSmoothness",
+      "name": "uFadeEnabled",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "uFadeStart",
       "type": "float",
       "count": 1,
       "values": [
-        1.0
+        0.0
+      ]
+    },
+    {
+      "name": "uFadeEnd",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
       ]
     }
   ]

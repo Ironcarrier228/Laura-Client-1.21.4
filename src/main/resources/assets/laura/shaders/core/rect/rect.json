@@ -1,11 +1,7 @@
 {
-  "vertex": "delta:core/blur/kawase",
-  "fragment": "delta:core/blur/upscale",
-  "samplers": [
-    {
-      "name": "Sampler0"
-    }
-  ],
+  "vertex": "laura:core/rect/rect",
+  "fragment": "laura:core/rect/rect",
+  "samplers": [],
   "uniforms": [
     {
       "name": "ModelViewMat",
@@ -54,7 +50,7 @@
       ]
     },
     {
-      "name": "uHalfTexelSize",
+      "name": "uSize",
       "type": "float",
       "count": 2,
       "values": [
@@ -63,11 +59,30 @@
       ]
     },
     {
-      "name": "uOffset",
+      "name": "uRadius",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "uSmoothness",
       "type": "float",
       "count": 1,
       "values": [
         1.0
+      ]
+    },
+    {
+      "name": "uOutlineWidth",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.0
       ]
     }
   ]

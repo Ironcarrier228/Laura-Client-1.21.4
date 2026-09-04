@@ -1,6 +1,6 @@
 #version 150
 
-#moj_import <delta:common.glsl>
+#moj_import <laura:common.glsl>
 
 in vec2 FragCoord;
 in vec2 TexCoord;

@@ -2,7 +2,7 @@
   "providers": [
     {
       "type": "bitmap",
-      "file": "delta:prefixes/admin.png",
+      "file": "laura:prefixes/admin.png",
       "ascent": 7,
       "height": 7,
       "chars": [
@@ -11,7 +11,7 @@
     },
     {
       "type": "bitmap",
-      "file": "delta:prefixes/staff.png",
+      "file": "laura:prefixes/staff.png",
       "ascent": 7,
       "height": 7,
       "chars": [
@@ -20,7 +20,7 @@
     },
     {
       "type": "bitmap",
-      "file": "delta:prefixes/youtuber.png",
+      "file": "laura:prefixes/youtuber.png",
       "ascent": 7,
       "height": 7,
       "chars": [
@@ -29,7 +29,7 @@
     },
     {
       "type": "bitmap",
-      "file": "delta:prefixes/shade.png",
+      "file": "laura:prefixes/shade.png",
       "ascent": 7,
       "height": 7,
       "chars": [
@@ -38,7 +38,7 @@
     },
     {
       "type": "bitmap",
-      "file": "delta:prefixes/dangerous.png",
+      "file": "laura:prefixes/dangerous.png",
       "ascent": 7,
       "height": 7,
       "chars": [
@@ -47,7 +47,7 @@
     },
     {
       "type": "bitmap",
-      "file": "delta:prefixes/devstvenik.png",
+      "file": "laura:prefixes/devstvenik.png",
       "ascent": 7,
       "height": 7,
       "chars": [
@@ -56,7 +56,7 @@
     },
     {
       "type": "bitmap",
-      "file": "delta:prefixes/drun.png",
+      "file": "laura:prefixes/drun.png",
       "ascent": 7,
       "height": 7,
       "chars": [
@@ -65,7 +65,7 @@
     },
     {
       "type": "bitmap",
-      "file": "delta:prefixes/qcold.png",
+      "file": "laura:prefixes/qcold.png",
       "ascent": 7,
       "height": 7,
       "chars": [
@@ -74,7 +74,7 @@
     },
     {
       "type": "bitmap",
-      "file": "delta:prefixes/win.png",
+      "file": "laura:prefixes/win.png",
       "ascent": 7,
       "height": 7,
       "chars": [
@@ -83,7 +83,7 @@
     },
     {
       "type": "bitmap",
-      "file": "delta:prefixes/burmalda.png",
+      "file": "laura:prefixes/burmalda.png",
       "ascent": 7,
       "height": 7,
       "chars": [
@@ -92,7 +92,7 @@
     },
     {
       "type": "bitmap",
-      "file": "delta:prefixes/vozduxan.png",
+      "file": "laura:prefixes/vozduxan.png",
       "ascent": 7,
       "height": 7,
       "chars": [
