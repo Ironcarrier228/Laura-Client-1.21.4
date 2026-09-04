@@ -1,0 +1,20 @@
+package laura.module.combat;
+
+import laura.core.Category;
+import laura.core.EventTarget;
+import laura.core.Module;
+import laura.core.ModuleRegister;
+import laura.event.PacketEvent;
+import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
+
+@ModuleRegister(name = "No Server Desync", description = "Не даёт серверу принудительно сбрасывать поворот вашей камеры", category = Category.Combat)
+public class NoServerDesync extends Module {
+    @EventTarget
+    public void a(PacketEvent event) {
+        if (event.isReceive() && event.getPacket() instanceof PlayerPositionLookS2CPacket packet) {
+            if (packet.change().pitch() != 0.0f && packet.change().yaw() != 0.0f) {
+                event.a(true);
+            }
+        }
+    }
+}

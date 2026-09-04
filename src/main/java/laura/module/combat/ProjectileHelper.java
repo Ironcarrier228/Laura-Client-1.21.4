@@ -1,0 +1,246 @@
+package laura.module.combat;
+
+import laura.core.*;
+import laura.core.Module;
+import laura.event.ClickEvent;
+import laura.event.TickEvent;
+import laura.event.WillLandEvent;
+import laura.util.Look;
+import laura.util.Rotation;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.BowItem;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.TridentItem;
+import net.minecraft.registry.tag.FluidTags;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
+
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.stream.StreamSupport;
+
+@ModuleRegister(name = "Projectile Helper", description = "Помогает целиться по противнику при стрельбе из лука или трезубца", category = Category.Combat)
+public class ProjectileHelper extends Module {
+    private final LivingEntity[] b = new LivingEntity[2];
+    private final Vec3d[] c = new Vec3d[5];
+    private int entityIndex;
+    private int tickCounter;
+    private boolean hasTarget;
+    private boolean isCharging;
+    private boolean f = true;
+
+    public LivingEntity getPrimaryTarget() {
+        return this.b[0];
+    }
+
+    public boolean isChargingProjectile() {
+        if (this.b[0] == null || mc.player == null || !mc.player.isUsingItem()) {
+            return false;
+        }
+        ItemStack active = mc.player.getActiveItem();
+        return active.getItem().getMaxUseTime(active, mc.player) - mc.player.getItemUseTimeLeft() > 2;
+    }
+
+    @Override
+    public void c() {
+        super.c();
+        resetState();
+    }
+
+    @EventTarget
+    public void onWillLand(WillLandEvent event) {
+        this.hasTarget = event.b();
+    }
+
+    @EventTarget
+    public void onTick(TickEvent event) {
+        Rotation aim;
+        if (mc.player == null || mc.world == null) {
+            return;
+        }
+        ItemStack stack = mc.player.getStackInHand(Hand.MAIN_HAND);
+        if (!(stack.getItem() instanceof BowItem) && !(stack.getItem() instanceof TridentItem)) {
+            resetState();
+            return;
+        }
+        if (!mc.player.isUsingItem()) {
+            this.f = true;
+        }
+        if (!this.f) {
+            resetState();
+            return;
+        }
+        this.isCharging = mc.player.input.playerInput.jump() && (mc.player.isOnGround() || this.hasTarget);
+        updateTarget(findBestTarget());
+        if (this.b[0] != null) {
+            Vec3d[] positions = this.c;
+            int i = this.tickCounter;
+            this.tickCounter = i + 1;
+            positions[i % this.c.length] = new Vec3d(this.b[0].getX() - this.b[0].prevX, 0.0d, this.b[0].getZ() - this.b[0].prevZ);
+        }
+        if (isChargingProjectile() && (aim = calculateAimRotation(stack)) != null) {
+            Laura.getInstance().getModuleProcessor().k().startAiming(aim, 180.0f, 1, 1);
+        }
+    }
+
+    @EventTarget
+    public void onClick(ClickEvent event) {
+        if (event.b() && event.h() == 0 && mc.player != null && mc.player.isUsingItem()) {
+            this.f = !this.f;
+        }
+    }
+
+    private void resetState() {
+        LivingEntity[] targets = this.b;
+        this.b[1] = null;
+        targets[0] = null;
+        this.entityIndex = 0;
+        Arrays.fill(this.c, null);
+    }
+
+    private LivingEntity findBestTarget() {
+        Vec3d eye = mc.player.getEyePos();
+        Vec3d look = Vec3d.fromPolar(Look.c(), Look.b());
+        return StreamSupport.stream(mc.world.getEntities().spliterator(), false)
+                .filter(PlayerEntity.class::isInstance)
+                .map(e -> (PlayerEntity) e)
+                .filter(e -> e != mc.player && e.isAlive() && !Laura.getInstance().getModuleProcessor().e().d(e.getName().getString()) && eye.squaredDistanceTo(e.getBoundingBox().getCenter()) <= 14400.0d)
+                .min(Comparator.comparingDouble(e2 -> -look.dotProduct(e2.getBoundingBox().getCenter().subtract(eye).normalize()))).orElse(null);
+    }
+
+    private void updateTarget(LivingEntity best) {
+        if (best != this.b[1]) {
+            this.b[1] = best;
+            this.entityIndex = 0;
+        } else {
+            this.entityIndex++;
+        }
+        if (this.b[0] != this.b[1]) {
+            if (this.b[0] == null || this.entityIndex >= 4) {
+                this.b[0] = this.b[1];
+                Arrays.fill(this.c, null);
+            }
+        }
+    }
+
+    private Vec3d getAverageMotion() {
+        Vec3d sum = Vec3d.ZERO;
+        int count = 0;
+        for (Vec3d entry : this.c) {
+            if (entry != null && entry.horizontalLengthSquared() > 1.000000229429758E-6d) {
+                sum = sum.add(entry);
+                count++;
+            }
+        }
+        return count == 0 ? Vec3d.ZERO : sum.multiply(1.0d / ((double) count));
+    }
+
+    private Rotation calculateAimRotation(ItemStack stack) {
+        Vec3d shooter = getShooterVelocity();
+        Vec3d origin = mc.player.getEyePos().add(0.0d, -0.1000000074661073d, 0.0d);
+        double speed = stack.getItem() instanceof BowItem ? getBowSpeed(stack) : 2.5d;
+        Box box = this.b[0].getBoundingBox();
+        Vec3d motion = getAverageMotion();
+        Vec3d aim = box.getCenter();
+        float yaw = 0.0f;
+        float pitch = 0.0f;
+        for (int i = 0; i < 6; i++) {
+            yaw = calculateYaw(origin, aim);
+            pitch = calculatePitch(origin, aim, shooter, speed);
+            double[] shot = simulateProjectile(origin, Vec3d.fromPolar(pitch, yaw).multiply(speed).add(shooter), Math.hypot(aim.x - origin.getX(), aim.z - origin.getZ()), true);
+            if (shot == null) {
+                return null;
+            }
+            Vec3d moved = box.getCenter().add(motion.multiply(Math.min(shot[1] + 6.0d, 13.0d)));
+            if (moved.squaredDistanceTo(aim) < 9.999996044721066E-5d) {
+                break;
+            }
+            aim = moved;
+        }
+        Rotation rotation = new Rotation(MathHelper.wrapDegrees(yaw), pitch);
+        float time = mc.player.age + mc.getRenderTickCounter().getTickDelta(false);
+        float smoothW = ((float) ((((Math.sin(time * 0.8f) * 11.0d) + (Math.sin((((double) time) * 0.04000001688754603d) + 17.200001527756587d) * 1.5d)) + (Math.sin((((double) time) * 0.11000000003049541d) + 5.800002923050999d) * 3.0d)) + (Math.sin((((double) time) * 0.07000000374109333d) + 12.300000031704212d)))) / 4.0f;
+        float smoothH = ((float) (Math.sin(((double) time) * 0.1000000001867308d) + (Math.sin((((double) time) * 0.029999988014174556d) + 54.09998474500903d) * 0.5d))) / 2.0f;
+        boolean tridentEarly = (stack.getItem() instanceof TridentItem) && stack.getItem().getMaxUseTime(stack, mc.player) - mc.player.getItemUseTimeLeft() < 9;
+        if (!tridentEarly) {
+            smoothW = MathHelper.clamp(smoothW, -0.3f, 0.3f);
+            smoothH = MathHelper.clamp(smoothH, -0.3f, 0.3f);
+        }
+        rotation.a(rotation.c() + smoothW);
+        rotation.b(rotation.d() + smoothH);
+        return rotation;
+    }
+
+    private float calculatePitch(Vec3d origin, Vec3d aim, Vec3d shooter, double speed) {
+        float low = -90.0f;
+        float high = 90.0f;
+        float yaw = calculateYaw(origin, aim);
+        double target = Math.hypot(aim.x - origin.getX(), aim.z - origin.getZ());
+        double height = aim.y - origin.getY();
+        for (int i = 0; i < 24; i++) {
+            float middle = (low + high) / 2.0f;
+            double[] shot = simulateProjectile(origin, Vec3d.fromPolar(middle, yaw).multiply(speed).add(shooter), target, false);
+            if (shot == null || shot[0] >= height) {
+                low = middle;
+            } else {
+                high = middle;
+            }
+        }
+        return (low + high) / 2.0f;
+    }
+
+    private double[] simulateProjectile(Vec3d origin, Vec3d velocity, double target, boolean blocked) {
+        Vec3d position = origin;
+        Vec3d current = velocity;
+        double travelled = 0.0d;
+        for (int tick = 1; tick <= 100; tick++) {
+            Vec3d next = position.add(current);
+            if (blocked && mc.world.raycast(new RaycastContext(position, next, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, mc.player)).getType() != HitResult.Type.MISS) {
+                return null;
+            }
+            double reached = Math.hypot(next.x - origin.getX(), next.z - origin.getZ());
+            if (reached >= target) {
+                double alpha = reached == travelled ? 1.0d : (target - travelled) / (reached - travelled);
+                return new double[]{MathHelper.lerp(alpha, position.y, next.y) - origin.getY(), ((double) (tick - 1)) + alpha};
+            }
+            position = next;
+            travelled = reached;
+            current = current.multiply(isInWater(position) ? 0.6000002908794272d : 0.9900000228356232d).add(0.0d, -0.050000001868616015d, 0.0d);
+        }
+        return null;
+    }
+
+    private boolean isInWater(Vec3d position) {
+        return mc.world.getBlockState(BlockPos.ofFloored(position)).getFluidState().isIn(FluidTags.WATER);
+    }
+
+    private Vec3d getShooterVelocity() {
+        Vec3d velocity = new Vec3d(mc.player.getX() - mc.player.prevX, mc.player.getY() - mc.player.prevY, mc.player.getZ() - mc.player.prevZ);
+        if (!this.isCharging) {
+            return new Vec3d(velocity.x, mc.player.isOnGround() ? 0.0d : velocity.y, velocity.z);
+        }
+        float yaw = mc.player.getYaw() * 0.017453292f;
+        double sprint = mc.player.isSprinting() ? 0.19999997617511883d : 0.0d;
+        return new Vec3d(velocity.x - (((double) MathHelper.sin(yaw)) * sprint), Math.max(0.42f + mc.player.getJumpBoostVelocityModifier(), velocity.y), velocity.z + (((double) MathHelper.cos(yaw)) * sprint));
+    }
+
+    private double getBowSpeed(ItemStack stack) {
+        float pull = 1.0f;
+        ItemStack active = mc.player.getActiveItem();
+        if (mc.player.isUsingItem() && (active.getItem() instanceof BowItem)) {
+            float progress = ((active.getItem().getMaxUseTime(active, mc.player) - mc.player.getItemUseTimeLeft()) + 1.5f) / 20.0f;
+            pull = Math.min(((progress * progress) + (progress * 2.0f)) / 3.0f, 1.0f);
+        }
+        return ((double) pull) * 3.0d;
+    }
+
+    private float calculateYaw(Vec3d from, Vec3d to) {
+        return (float) Math.toDegrees(Math.atan2(-(to.getX() - from.getX()), to.getZ() - from.getZ()));
+    }
+}

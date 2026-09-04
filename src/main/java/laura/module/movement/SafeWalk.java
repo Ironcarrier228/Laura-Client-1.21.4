@@ -1,0 +1,19 @@
+package laura.module.movement;
+
+import laura.core.Category;
+import laura.core.EventTarget;
+import laura.core.Module;
+import laura.core.ModuleRegister;
+import laura.event.InputEvent;
+
+@ModuleRegister(name = "Safe Walk", description = "Не даёт упасть с края блоков", category = Category.Movement)
+public class SafeWalk extends Module {
+    @EventTarget
+    public void a(InputEvent event) {
+        b(event);
+    }
+
+    public void b(InputEvent event) {
+        event.setSneak(event.isSneak() || (mc.world.getBlockState(mc.player.getBlockPos().down()).getCollisionShape(mc.world, mc.player.getBlockPos().down()).isEmpty() && mc.player.isOnGround()));
+    }
+}

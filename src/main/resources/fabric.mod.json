@@ -1,0 +1,36 @@
+{
+  "accessWidener": "laura.accesswidener",
+  "schemaVersion": 1,
+  "id": "laura",
+  "version": "3.0.14",
+  "name": "Laura",
+  "description": "https://github.com/Laura-Client 1.21.4",
+  "authors": [
+    "Ironcarrier",
+    "fen"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fabric-example-mod"
+  },
+  "license": "Minecraft EULA",
+  "icon": "assets/laura/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "platform.Initializer"
+    ]
+  },
+  "mixins": [
+    "laura.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": "\u003e\u003d0.16.5",
+    "minecraft": "~1.21.4",
+    "java": "\u003e\u003d21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "another-mod": "*"
+  }
+}

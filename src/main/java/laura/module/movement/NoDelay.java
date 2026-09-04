@@ -1,0 +1,27 @@
+package laura.module.movement;
+
+import laura.core.*;
+import laura.core.Module;
+import laura.event.TickEvent;
+import laura.setting.BooleanSetting;
+import laura.setting.MultiModeSetting;
+import net.minecraft.item.BlockItem;
+
+@ModuleRegister(name = "No Delay", description = "Убирает задержку у выбранных действий", category = Category.Movement)
+public class NoDelay extends Module {
+    public final MultiModeSetting b = new MultiModeSetting("Отключить задержку на", new BooleanSetting("Поставку блоков", true), new BooleanSetting("Прыжки", true));
+
+    public NoDelay() {
+        a(this.b);
+    }
+
+    @EventTarget
+    public void a(TickEvent event) {
+        if (this.b.a("Поставку блоков").c().booleanValue() && (mc.player.getMainHandStack().getItem() instanceof BlockItem) && !Laura.getInstance().getModuleProcessor().t().aS().m()) {
+            ((platform.inject.accessors.MinecraftClientAccessor) mc).setItemUseCooldown(0);
+        }
+        if (this.b.a("Прыжки").c().booleanValue()) {
+            ((platform.inject.accessors.LivingEntityAccessor) mc.player).setJumpingCooldown(0);
+        }
+    }
+}

@@ -1,0 +1,73 @@
+package laura.module.combat;
+
+import laura.core.Category;
+import laura.core.EventTarget;
+import laura.core.Module;
+import laura.core.ModuleRegister;
+import laura.event.PacketEvent;
+import laura.event.TickEvent;
+import laura.util.ChatUtil;
+import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@ModuleRegister(name = "Anti Bot", description = "Скрывает фальшивых игроков, появляющихся в мире", category = Category.Combat)
+public class AntiBot extends Module {
+    private final List<UUID> b = new ArrayList<>();
+
+    @Override
+    public void b() {
+        super.b();
+        this.b.clear();
+    }
+
+    @Override
+    public void c() {
+        super.c();
+        this.b.clear();
+    }
+
+    @EventTarget
+    public void a(PacketEvent event) {
+        if (event.isReceive()) {
+            EntitySpawnS2CPacket spawn = (EntitySpawnS2CPacket) event.getPacket();
+            if (spawn instanceof EntitySpawnS2CPacket) {
+                if (spawn.getEntityType() == EntityType.PLAYER) {
+                    PlayerListEntry entry = mc.getNetworkHandler().getPlayerListEntry(spawn.getUuid());
+                    boolean skin = entry != null && entry.getSkinTextures() != null && entry.getSkinTextures().textureUrl() != null;
+                    boolean texture = entry != null && !entry.getProfile().getProperties().get("textures").isEmpty();
+                    boolean ping = entry == null || entry.getLatency() == 0;
+                    if (!skin && !texture && ping) {
+                        this.b.add(spawn.getUuid());
+                    }
+                }
+            }
+        }
+    }
+
+    @EventTarget
+    public void a(TickEvent event) {
+        List<UUID> checked = new ArrayList<>();
+        for (UUID uuid : this.b) {
+            for (PlayerEntity player : mc.world.getPlayers()) {
+                if (player.getUuid().equals(uuid)) {
+                    boolean armor = !player.getEquippedStack(EquipmentSlot.HEAD).isEmpty() && !player.getEquippedStack(EquipmentSlot.CHEST).isEmpty() && !player.getEquippedStack(EquipmentSlot.LEGS).isEmpty() && !player.getEquippedStack(EquipmentSlot.FEET).isEmpty();
+                    if (armor) {
+                        ChatUtil.sendMessage("Фальшивый игрок был обнаружен, и удален из мира.");
+                        mc.world.removeEntity(player.getId(), Entity.RemovalReason.DISCARDED);
+                    }
+                    checked.add(uuid);
+                    break;
+                }
+            }
+        }
+        this.b.removeAll(checked);
+    }
+}

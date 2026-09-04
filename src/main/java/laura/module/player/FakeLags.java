@@ -1,0 +1,113 @@
+package laura.module.player;
+
+import laura.core.*;
+import laura.core.Module;
+import laura.event.AttackEvent;
+import laura.event.DrawEvent;
+import laura.event.PacketEvent;
+import laura.event.TickEvent;
+import laura.render.ColorUtil;
+import laura.setting.BooleanSetting;
+import laura.setting.SliderSetting;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.c2s.play.*;
+import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
+import net.minecraft.util.math.Vec3d;
+import platform.inject.accessors.ClientConnectionAccessor;
+
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+@ModuleRegister(name = "Fake Lags", description = "Задерживает отправку пакетов, имитируя лаги на сервере", category = Category.Player)
+public class FakeLags extends Module {
+    private final SliderSetting b = new SliderSetting("Задержка симуляции", 20.0f, 1.0f, 40.0f, 1.0f);
+    private final BooleanSetting c = new BooleanSetting("Отображать серв-позицию", false);
+    private final Queue<Packet<?>> d = new ConcurrentLinkedQueue<>();
+    private int delayCounter;
+    private int attackCooldown;
+    private Vec3d serverPosition;
+
+    public FakeLags() {
+        a(this.b, this.c);
+    }
+
+    @Override
+    public void b() {
+        super.b();
+        this.d.clear();
+        this.delayCounter = 0;
+        this.attackCooldown = 0;
+        this.serverPosition = null;
+    }
+
+    @Override
+    public void c() {
+        super.c();
+        q();
+        this.serverPosition = null;
+    }
+
+    @EventTarget
+    public void a(AttackEvent event) {
+        this.attackCooldown = 2;
+        q();
+    }
+
+    @EventTarget
+    public void a(PacketEvent event) {
+        if (mc.player == null) {
+            return;
+        }
+        if (event.isReceive()) {
+            if (event.getPacket() instanceof EntityVelocityUpdateS2CPacket velocity) {
+                if (velocity.getEntityId() == mc.player.getId()) {
+                    q();
+                    return;
+                }
+                return;
+            }
+            return;
+        }
+        if (event.isSend()) {
+            if (this.attackCooldown > 0 || a(event.getPacket())) {
+                q();
+            } else {
+                this.d.offer(event.getPacket());
+                event.a(true);
+            }
+        }
+    }
+
+    @EventTarget
+    public void a(TickEvent event) {
+        if (this.attackCooldown > 0) {
+            this.attackCooldown--;
+        }
+        int i = this.delayCounter + 1;
+        this.delayCounter = i;
+        if (i >= this.b.c().intValue() && !this.d.isEmpty()) {
+            q();
+            this.delayCounter = 0;
+        }
+    }
+
+    @EventTarget
+    public void a(DrawEvent event) {
+        if (event.c() && this.c.c().booleanValue() && this.serverPosition != null) {
+            event.getDraw3DProcessor().a(event.h(), mc.player.getBoundingBox().offset(this.serverPosition.subtract(mc.player.getPos())), ColorUtil.convertToARGB(255, 255, 255, InterfaceC0020Opcode.aN), 0.75f);
+        }
+    }
+
+    private boolean a(Packet<?> packet) {
+        return (packet instanceof PlayerInteractEntityC2SPacket) || (packet instanceof ChatMessageC2SPacket) || (packet instanceof UpdateSelectedSlotC2SPacket) || (packet instanceof HandSwingC2SPacket) || (packet instanceof PlayerInteractBlockC2SPacket) || (packet instanceof PlayerInteractItemC2SPacket) || (packet instanceof ClickSlotC2SPacket);
+    }
+
+    private void q() {
+        ClientConnectionAccessor connection = (ClientConnectionAccessor) mc.player.networkHandler.getConnection();
+        this.d.forEach(packet -> {
+            connection.sendWithoutEvent(packet, null, true);
+        });
+        this.d.clear();
+        this.serverPosition = mc.player.getPos();
+    }
+}
