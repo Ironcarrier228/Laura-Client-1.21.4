@@ -143,6 +143,7 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
     private final AutoLeave bb = new AutoLeave();
     private final Velocity bc = new Velocity();
     private final DamageIndicator damageIndicator = new DamageIndicator();
+    private final KillText killText = new KillText();
     private final ElectricArcs electricArcs = new ElectricArcs();
     private final Trails trails = new Trails();
     private final PulseRings pulseRings = new PulseRings();
@@ -178,7 +179,7 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
                 this.l, this.F, this.G, this.H, this.B, this.C, this.R, this.D, this.X, this.j, this.M, this.ay, this.L,
                 this.K, this.o, this.E, this.ae, this.v, this.ac, this.af, this.T, this.ai, this.ab, this.aa, this.O,
                 this.p, this.w, this.bd, this.at, this.au, this.aB, this.aO, this.e, this.aN, this.aP, this.aU, this.aV,
-                this.aW, this.aX, this.aZ, this.ba, this.bb, this.Y, this.damageIndicator, this.electricArcs,
+                this.aW, this.aX, this.aZ, this.ba, this.bb, this.Y, this.damageIndicator, this.killText, this.electricArcs,
                 this.trails, this.pulseRings, this.freeLook, this.volumetricFog, this.ambientParticles,
                 this.chromaticVignette, this.spotifyHUD);
         super.setup();
@@ -864,6 +865,10 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
 
     public DamageIndicator be() {
         return this.damageIndicator;
+    }
+
+    public KillText killText() {
+        return this.killText;
     }
 
     public ElectricArcs bf() {
