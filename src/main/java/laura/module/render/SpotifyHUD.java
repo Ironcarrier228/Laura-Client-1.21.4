@@ -8,6 +8,7 @@ import laura.core.Category;
 import laura.core.EventTarget;
 import laura.core.Module;
 import laura.core.ModuleRegister;
+import laura.event.ClickEvent;
 import laura.event.DrawEvent;
 import laura.render.ColorUtil;
 import laura.render.Draw2DProcessor;
@@ -16,11 +17,13 @@ import laura.render.Fonts;
 import laura.render.ScissorUtil;
 import laura.setting.BindSetting;
 import laura.setting.BooleanSetting;
+import laura.setting.ButtonSetting;
 import laura.setting.ColorSetting;
 import laura.setting.ModeSetting;
 import laura.setting.SliderSetting;
 import laura.setting.StringSetting;
 import laura.util.MathUtil;
+import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.util.math.MatrixStack;
@@ -47,7 +50,14 @@ public class SpotifyHUD extends Module {
     private static final String TOKEN_URL = "https://accounts.spotify.com/api/token";
     private static final long TOKEN_REFRESH_MARGIN_MS = 30_000L;
 
+    private static final String MODE_CORNER = "По углам";
+    private static final String MODE_FREE = "Своя позиция";
+
+    // Режим размещения: по углам (автоматически) или свободная позиция (перетаскивание мышью)
+    private final ModeSetting positionMode = new ModeSetting("Режим позиции", MODE_CORNER, MODE_CORNER, MODE_FREE);
     private final ModeSetting corner = new ModeSetting("Угол", "Справа сверху", "Слева сверху", "Справа сверху", "Слева снизу", "Справа снизу");
+    private final SliderSetting freeX = new SliderSetting("Позиция X (%)", 50.0f, 0.0f, 100.0f, 1.0f);
+    private final SliderSetting freeY = new SliderSetting("Позиция Y (%)", 35.0f, 0.0f, 100.0f, 1.0f);
     private final SliderSetting scale = new SliderSetting("Масштаб", 1.0f, 0.7f, 1.6f, 0.05f);
     private final SliderSetting hideDelay = new SliderSetting("Скрывать через (сек)", 6.0f, 2.0f, 30.0f, 0.5f);
     private final SliderSetting pollInterval = new SliderSetting("Опрос Spotify (сек)", 2.5f, 1.0f, 10.0f, 0.5f);
@@ -62,6 +72,7 @@ public class SpotifyHUD extends Module {
     private final StringSetting clientId = new StringSetting("Client ID", "");
     private final StringSetting clientSecret = new StringSetting("Client Secret", "");
     private final StringSetting refreshTokenSetting = new StringSetting("Refresh Token", "");
+    private final ButtonSetting testConnection = new ButtonSetting("Проверить подключение", () -> forcePoll());
     private final BindSetting playPauseBind = new BindSetting("Play/Pause", -1).a(() -> controlPlayback("toggle"));
     private final BindSetting nextBind = new BindSetting("Следующий трек", -1).a(() -> controlPlayback("next"));
     private final BindSetting previousBind = new BindSetting("Предыдущий трек", -1).a(() -> controlPlayback("previous"));
@@ -85,6 +96,7 @@ public class SpotifyHUD extends Module {
     private long accessTokenExpiresAt;
     private long backoffUntil;
     private long lastPollAt;
+    private String errorMessage = "";
 
     private Identifier coverId;
     private int coverCounter;
@@ -93,11 +105,23 @@ public class SpotifyHUD extends Module {
     private long hintUntil;
     private String shownTrackId;
 
+    // Позиция виджета в свободном режиме (последний отрисованный прямоугольник для перетаскивания)
+    private float lastX;
+    private float lastY;
+    private float lastW;
+    private float lastH;
+    private boolean dragging;
+    private double dragOffsetX;
+    private double dragOffsetY;
+
     public SpotifyHUD() {
-        a(this.corner, this.scale, this.hideDelay, this.pollInterval, this.animSpeed, this.pinned, this.showCover,
-                this.showTimes, this.backgroundColor, this.accentColor, this.textColor, this.subTextColor,
-                this.clientId, this.clientSecret, this.refreshTokenSetting,
-                this.playPauseBind, this.nextBind, this.previousBind);
+        this.corner.a(() -> this.positionMode.c().equals(MODE_CORNER));
+        this.freeX.a(() -> this.positionMode.c().equals(MODE_FREE));
+        this.freeY.a(() -> this.positionMode.c().equals(MODE_FREE));
+        a(this.positionMode, this.corner, this.freeX, this.freeY, this.scale, this.hideDelay, this.pollInterval,
+                this.animSpeed, this.pinned, this.showCover, this.showTimes, this.backgroundColor, this.accentColor,
+                this.textColor, this.subTextColor, this.clientId, this.clientSecret, this.refreshTokenSetting,
+                this.testConnection, this.playPauseBind, this.nextBind, this.previousBind);
     }
 
     @Override
@@ -108,6 +132,7 @@ public class SpotifyHUD extends Module {
         this.hintUntil = System.currentTimeMillis() + 14_000L;
         this.shownTrackId = null;
         this.lastPollAt = 0L;
+        this.errorMessage = "";
         synchronized (this.executor) {
             if (this.pollTask == null || this.pollTask.isCancelled() || this.pollTask.isDone()) {
                 this.pollTask = this.executor.scheduleWithFixedDelay(this::pollSafely, 0L, 500L, TimeUnit.MILLISECONDS);
@@ -126,64 +151,128 @@ public class SpotifyHUD extends Module {
         }
         this.track = null;
         this.state = State.SETUP;
+        this.dragging = false;
     }
 
     @EventTarget
     public void a(DrawEvent event) {
-        if (!event.b() || mc.options.hudHidden) {
+        try {
+            if (!event.b() || mc.options.hudHidden) {
+                return;
+            }
+            long now = System.currentTimeMillis();
+
+            uploadPendingCover();
+
+            Track current = this.track;
+            boolean visible = isPanelVisible(current, now);
+            this.visibility = MathUtil.c(this.visibility, visible ? 1.0f : 0.0f, this.animSpeed.c().floatValue());
+            if (this.visibility <= 0.004f && !visible) {
+                return;
+            }
+            float alpha = MathUtil.b(this.visibility, 0.0f, 1.0f);
+            if (current != null && current.id != null && !current.id.equals(this.shownTrackId)) {
+                this.shownTrackId = current.id;
+                peek(now);
+            }
+            if (current != null && current.playing) {
+                this.hideAt = now + (long) (this.hideDelay.c().floatValue() * 1000.0f);
+            }
+
+            float s = this.scale.c().floatValue();
+            float width = 212.0f * s;
+            float height = 58.0f * s;
+            float margin = 8.0f * s;
+            float screenW = (float) mc.getWindow().getScaledWidth();
+            float screenH = (float) mc.getWindow().getScaledHeight();
+            float x;
+            float y;
+            if (this.positionMode.c().equals(MODE_CORNER)) {
+                float slide = (1.0f - easeOutCubic(alpha)) * (height + margin);
+                String mode = this.corner.c();
+                if (mode.contains("Справа")) {
+                    x = screenW - width - margin;
+                } else {
+                    x = margin;
+                }
+                if (mode.contains("снизу")) {
+                    y = screenH - height - margin + slide;
+                } else {
+                    y = margin - slide;
+                }
+            } else {
+                float maxX = Math.max(0.0f, screenW - width);
+                float maxY = Math.max(0.0f, screenH - height);
+                x = (this.freeX.c().floatValue() / 100.0f) * maxX;
+                y = (this.freeY.c().floatValue() / 100.0f) * maxY;
+            }
+
+            this.lastX = x;
+            this.lastY = y;
+            this.lastW = width;
+            this.lastH = height;
+
+            MatrixStack matrices = event.i().getMatrices();
+            Draw2DProcessor draw = event.getDraw2DProcessor();
+            drawPanel(draw, matrices, current, x, y, width, height, s, alpha, now);
+        } catch (Exception exception) {
+            // Отрисовка виджета не должна ломать интерфейс при любых ошибках данных
+        }
+    }
+
+    // Перетаскивание виджета в свободном режиме (работает, когда открыт чат)
+    @EventTarget
+    public void a(ClickEvent event) {
+        if (!this.positionMode.c().equals(MODE_FREE) || !(mc.currentScreen instanceof ChatScreen)) {
             return;
         }
-        long now = System.currentTimeMillis();
-
-        uploadPendingCover();
-
-        Track current = this.track;
-        boolean visible = isPanelVisible(current, now);
-        this.visibility = MathUtil.c(this.visibility, visible ? 1.0f : 0.0f, this.animSpeed.c().floatValue());
-        if (this.visibility <= 0.004f && !visible) {
-            return;
+        if (event.b() && event.h() == 0) {
+            if (this.lastW > 0.0f && this.lastH > 0.0f
+                    && MathUtil.a(event.getMouseX(), event.getMouseY(), this.lastX, this.lastY, this.lastW, this.lastH)) {
+                this.dragging = true;
+                this.dragOffsetX = event.getMouseX() - this.lastX;
+                this.dragOffsetY = event.getMouseY() - this.lastY;
+            }
+        } else if (event.d() && this.dragging && event.h() == 0) {
+            float nx = (float) (event.getMouseX() - this.dragOffsetX);
+            float ny = (float) (event.getMouseY() - this.dragOffsetY);
+            applyFreePosition(nx, ny);
+        } else if (event.c() && event.h() == 0) {
+            this.dragging = false;
         }
-        float alpha = MathUtil.b(this.visibility, 0.0f, 1.0f);
-        if (current != null && current.id != null && !current.id.equals(this.shownTrackId)) {
-            this.shownTrackId = current.id;
-            peek(now);
-        }
+    }
 
+    private void applyFreePosition(float px, float py) {
         float s = this.scale.c().floatValue();
         float width = 212.0f * s;
         float height = 58.0f * s;
-        float margin = 8.0f * s;
-        float screenW = (float) mc.getWindow().getScaledWidth();
-        float screenH = (float) mc.getWindow().getScaledHeight();
-        float slide = (1.0f - easeOutCubic(alpha)) * (height + margin);
-        float x;
-        float y;
-        String mode = this.corner.c();
-        if (mode.contains("Справа")) {
-            x = screenW - width - margin;
-        } else {
-            x = margin;
-        }
-        if (mode.contains("снизу")) {
-            y = screenH - height - margin + slide;
-        } else {
-            y = margin - slide;
-        }
-
-        MatrixStack matrices = event.i().getMatrices();
-        Draw2DProcessor draw = event.getDraw2DProcessor();
-        drawPanel(draw, matrices, current, x, y, width, height, s, alpha, now);
+        float maxX = Math.max(0.0f, (float) mc.getWindow().getScaledWidth() - width);
+        float maxY = Math.max(0.0f, (float) mc.getWindow().getScaledHeight() - height);
+        px = MathUtil.b(px, 0.0f, maxX);
+        py = MathUtil.b(py, 0.0f, maxY);
+        this.freeX.a(maxX > 0.0f ? (px / maxX) * 100.0f : 0.0f);
+        this.freeY.a(maxY > 0.0f ? (py / maxY) * 100.0f : 0.0f);
     }
 
     private boolean isPanelVisible(Track current, long now) {
         if (this.pinned.c().booleanValue()) {
             return true;
         }
-        if (this.state == State.SETUP || this.state == State.AUTH_ERROR) {
-            return now < this.hintUntil;
+        // В свободном режиме при открытом чате показываем виджет, чтобы его можно было перетащить
+        if (this.positionMode.c().equals(MODE_FREE) && mc.currentScreen instanceof ChatScreen) {
+            return true;
+        }
+        if (this.state == State.AUTH_ERROR || this.state == State.OFFLINE) {
+            return true;
+        }
+        if (this.state == State.SETUP) {
+            return !hasCredentials() || now < this.hintUntil;
         }
         if (current == null) {
             return now < this.hintUntil;
+        }
+        if (current.playing) {
+            return true;
         }
         return now < this.hideAt;
     }
@@ -194,6 +283,13 @@ public class SpotifyHUD extends Module {
 
     private void peek(long now) {
         this.hideAt = now + (long) (this.hideDelay.c().floatValue() * 1000.0f);
+    }
+
+    private void forcePoll() {
+        peek();
+        this.lastPollAt = 0L;
+        this.backoffUntil = 0L;
+        this.executor.execute(this::pollSafely);
     }
 
     private void drawPanel(Draw2DProcessor draw, MatrixStack matrices, Track current, float x, float y,
@@ -236,13 +332,19 @@ public class SpotifyHUD extends Module {
             fraction = MathUtil.b(((float) progressMs) / ((float) durationMs), 0.0f, 1.0f);
         } else if (panelState == State.AUTH_ERROR) {
             title = "Ошибка авторизации";
-            artist = "Проверьте Client ID / Secret / Refresh Token";
+            artist = this.errorMessage;
+        } else if (panelState == State.OFFLINE) {
+            title = "Нет соединения";
+            artist = this.errorMessage;
         } else if (panelState == State.IDLE) {
             title = "Ничего не играет";
             artist = "Запустите музыку в Spotify";
-        } else {
+        } else if (!hasCredentials()) {
             title = "Spotify не подключён";
             artist = "Укажите Client ID, Secret и Refresh Token";
+        } else {
+            title = "Подключение к Spotify...";
+            artist = "Идёт запрос к плееру";
         }
 
         float titleSize = 7.4f * s;
@@ -372,6 +474,7 @@ public class SpotifyHUD extends Module {
             if (!hasCredentials()) {
                 this.state = State.SETUP;
                 this.track = null;
+                this.errorMessage = "";
                 return;
             }
             this.lastPollAt = now;
@@ -379,15 +482,16 @@ public class SpotifyHUD extends Module {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } catch (Exception exception) {
+            this.state = State.OFFLINE;
+            this.errorMessage = "Не удалось связаться с Spotify. Проверьте интернет.";
             this.backoffUntil = System.currentTimeMillis() + 10_000L;
         }
     }
 
     private void pollNow() throws Exception {
+        long now = System.currentTimeMillis();
         if (!refreshAccessToken(false)) {
-            this.state = State.AUTH_ERROR;
-            this.track = null;
-            this.backoffUntil = System.currentTimeMillis() + 15_000L;
+            fail("Неверные данные Spotify. Проверьте Client ID, Secret и Refresh Token (HTTP " + this.lastTokenStatus + ")");
             return;
         }
         HttpResponse<String> response = sendPlayerRequest("GET", "/currently-playing", null);
@@ -401,16 +505,22 @@ public class SpotifyHUD extends Module {
         if (response.statusCode() == 204 || response.statusCode() == 404) {
             this.state = State.IDLE;
             this.track = null;
+            this.errorMessage = "";
+            return;
+        }
+        if (response.statusCode() == 403) {
+            fail("Spotify запретил доступ (403). Добавьте в приложение scopes: user-read-playback-state, user-modify-playback-state");
             return;
         }
         if (response.statusCode() != 200) {
-            this.backoffUntil = System.currentTimeMillis() + 10_000L;
+            fail("Ошибка Spotify: HTTP " + response.statusCode());
             return;
         }
         JsonObject root = JsonParser.parseString(response.body()).getAsJsonObject();
         if (!root.has("item") || !root.get("item").isJsonObject()) {
             this.state = State.IDLE;
             this.track = null;
+            this.errorMessage = "";
             return;
         }
         JsonObject item = root.getAsJsonObject("item");
@@ -425,9 +535,18 @@ public class SpotifyHUD extends Module {
         String coverUrl = readCoverUrl(item);
         this.track = new Track(id, title, artist, durationMs, progressMs, playing, System.currentTimeMillis());
         this.state = State.TRACK;
+        this.errorMessage = "";
+        peek(now);
         if (id != null && !id.equals(previousId) && coverUrl != null) {
             downloadCover(coverUrl);
         }
+    }
+
+    private void fail(String message) {
+        this.state = State.AUTH_ERROR;
+        this.track = null;
+        this.errorMessage = message;
+        this.backoffUntil = System.currentTimeMillis() + 15_000L;
     }
 
     private void controlPlayback(String action) {
@@ -492,18 +611,38 @@ public class SpotifyHUD extends Module {
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
         HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        this.lastTokenStatus = response.statusCode();
         if (response.statusCode() != 200) {
             this.accessToken = null;
+            this.errorMessage = describeTokenError(response.statusCode());
             return false;
         }
         JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
         if (!json.has("access_token")) {
+            this.errorMessage = "Spotify вернул некорректный ответ (нет access_token)";
             return false;
         }
         this.accessToken = json.get("access_token").getAsString();
         long expiresIn = json.has("expires_in") ? json.get("expires_in").getAsLong() : 3600L;
         this.accessTokenExpiresAt = now + (expiresIn * 1000L) - TOKEN_REFRESH_MARGIN_MS;
         return true;
+    }
+
+    private String describeTokenError(int status) {
+        switch (status) {
+            case 400:
+                return "Spotify не принял запрос (400). Проверьте Client ID/Secret/Refresh Token";
+            case 401:
+                return "Spotify отклонил токен (401). Неверный Client Secret или Refresh Token";
+            case 403:
+                return "Spotify запретил доступ (403). Проверьте scopes в приложении";
+            case 404:
+                return "Приложение Spotify не найдено (404). Проверьте Client ID";
+            case 429:
+                return "Слишком много запросов к Spotify (429). Подождите немного";
+            default:
+                return "Ошибка авторизации Spotify (HTTP " + status + ")";
+        }
     }
 
     private HttpResponse<String> sendPlayerRequest(String method, String path, String body) throws Exception {
@@ -601,9 +740,12 @@ public class SpotifyHUD extends Module {
         return object.has(key) && !object.get(key).isJsonNull() ? object.get(key).getAsLong() : 0L;
     }
 
+    private int lastTokenStatus;
+
     private enum State {
         SETUP,
         AUTH_ERROR,
+        OFFLINE,
         IDLE,
         TRACK
     }
