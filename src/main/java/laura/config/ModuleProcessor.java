@@ -150,6 +150,7 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
     private final VolumetricFog volumetricFog = new VolumetricFog();
     private final AmbientParticles ambientParticles = new AmbientParticles();
     private final ChromaticVignette chromaticVignette = new ChromaticVignette();
+    private final SpotifyHUD spotifyHUD = new SpotifyHUD();
     private Interface bd;
 
     public static void a(JSONObject obj, Module module) {
@@ -179,7 +180,7 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
                 this.p, this.w, this.bd, this.at, this.au, this.aB, this.aO, this.e, this.aN, this.aP, this.aU, this.aV,
                 this.aW, this.aX, this.aZ, this.ba, this.bb, this.Y, this.damageIndicator, this.electricArcs,
                 this.trails, this.pulseRings, this.freeLook, this.volumetricFog, this.ambientParticles,
-                this.chromaticVignette);
+                this.chromaticVignette, this.spotifyHUD);
         super.setup();
     }
 
@@ -891,6 +892,10 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
 
     public ChromaticVignette bl() {
         return this.chromaticVignette;
+    }
+
+    public SpotifyHUD bm() {
+        return this.spotifyHUD;
     }
 
     public Interface bd() {
