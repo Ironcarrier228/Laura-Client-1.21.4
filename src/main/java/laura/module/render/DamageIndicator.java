@@ -46,6 +46,7 @@ public class DamageIndicator extends Module {
     private final Map<Integer, Float> healthMap = new HashMap<>();
     private final List<a> popups = new ArrayList<>();
     private long lastHit;
+    private int lastDamagedId = -1;
 
     public DamageIndicator() {
         a(this.b, this.c, this.d, this.e);
@@ -152,6 +153,7 @@ public class DamageIndicator extends Module {
         this.popups.add(new a(entity.getPos(), (critical ? "! " : "") + String.format("%.1f", Float.valueOf(damage)), now, color));
         if (!onYou && onPlayer) {
             this.lastHit = now;
+            this.lastDamagedId = entity.getId();
         }
     }
 
@@ -188,6 +190,15 @@ public class DamageIndicator extends Module {
         this.popups.clear();
         this.healthMap.clear();
         this.lastHit = 0L;
+        this.lastDamagedId = -1;
+    }
+
+    public long u() {
+        return this.lastHit;
+    }
+
+    public int v() {
+        return this.lastDamagedId;
     }
 
     private static final class a {
