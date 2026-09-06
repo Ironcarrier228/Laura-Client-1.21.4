@@ -84,10 +84,6 @@ public class Aura extends Module {
         return this.target;
     }
 
-    private float getEffectiveReach() {
-        return this.attackDistance.c().floatValue() + this.extraReach.c().floatValue();
-    }
-
     @Override
     public void b() {
         if (this.timers[9] == -1.0f) {
@@ -123,9 +119,8 @@ public class Aura extends Module {
         if (this.target != null) {
             MoveUtil.a(e, !this.movementCorrection.l("Фокус") ? Look.b() : this.timers[1], 2);
         }
-        float effReach = getEffectiveReach();
         if (this.timers[0] > 0.0f && this.target != null
-                && AuraUtil.a(this.target, effReach)) {
+                && AuraUtil.a(this.target, this.attackDistance.c().floatValue())) {
             e.setForward(0.0f);
             e.setStrafe(0.0f);
             float[] fArr = this.timers;
@@ -135,23 +130,11 @@ public class Aura extends Module {
 
     @EventTarget
     public void onGlobalEvent(GlobalEvent e) {
-        float effReach = getEffectiveReach();
-        boolean wallCheck = this.dontHitWhen.a("Враг за стеной").c().booleanValue();
-        boolean targetBehindWall = false;
-        if (this.target != null && wallCheck) {
-            // visible check: true if can see target from eye within effReach
-            targetBehindWall = !AuraUtil.a(mc.player.getEyePos(), this.target, effReach);
-        }
-        if (!isValidTarget(this.target) || targetBehindWall || (MaceUtil.a() && !this.willLand
+        if (!isValidTarget(this.target) || (MaceUtil.a() && !this.willLand
                 && !mc.player.getItemCooldownManager().isCoolingDown(Items.MACE.getDefaultStack()))) {
             LivingEntity prev = this.target;
-            boolean prevInvalid = !isValidTarget(prev);
-            boolean prevBehindWall = false;
-            if (prev != null && wallCheck) {
-                prevBehindWall = !AuraUtil.a(mc.player.getEyePos(), prev, effReach);
-            }
-            boolean fresh = prevInvalid || prevBehindWall;
-            this.target = (fresh && wallCheck)
+            boolean fresh = !isValidTarget(prev);
+            this.target = (fresh && this.dontHitWhen.a("Враг за стеной").c().booleanValue())
                     ? findTargetWithParam(false).or(() -> {
                         return findTargetWithParam(true);
                     }).orElse(null)
@@ -164,7 +147,7 @@ public class Aura extends Module {
         }
         restoreSelectedSlot();
         if (this.target != null) {
-            // FIX: rotate first, then attack - ensures attack uses fresh rotation, fixes "sometimes not hitting" due to stale 1-tick rotation
+            performAttack();
             rotateToTarget();
             performAttack();
             return;
@@ -203,10 +186,8 @@ public class Aura extends Module {
     }
 
     private void performAttack() {
-        float effReach = getEffectiveReach();
-        boolean wallCheck = this.dontHitWhen.a("Враг за стеной").c().booleanValue();
-        if (!AuraUtil.a(mc.player.getYaw(), mc.player.getPitch(), effReach, this.target,
-                !wallCheck)) {
+        if (!AuraUtil.a(mc.player.getYaw(), mc.player.getPitch(), this.attackDistance.c().floatValue(), this.target,
+                !this.dontHitWhen.a("Враг за стеной").c().booleanValue())) {
             return;
         }
         if (this.shieldBreaking.c().booleanValue() && this.target.isBlocking()) {
@@ -263,13 +244,10 @@ public class Aura extends Module {
                             new ClientCommandC2SPacket(mc.player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
                     this.timers[0] = 1.0f;
                 } else {
-                    // FIX: smartSprint must actually stop sprinting, otherwise it blocks all hits while sprinting
-                    ((platform.inject.accessors.ClientPlayerEntityAccessor) mc.player).setWasSprinting(false);
-                    mc.player.setSprinting(false);
-                    mc.player.networkHandler.sendPacket(
-                            new ClientCommandC2SPacket(mc.player, ClientCommandC2SPacket.Mode.STOP_SPRINTING));
                     this.timers[0] = 1.0f;
-                    return;
+                    if (((platform.inject.accessors.ClientPlayerEntityAccessor) mc.player).getWasSprinting()) {
+                        return;
+                    }
                 }
             }
             if (mc.interactionManager != null) {
@@ -295,11 +273,10 @@ public class Aura extends Module {
             this.attackCooldown = 8;
             return false;
         }
-        float effReach = getEffectiveReach();
         if ((this.dontHitWhen.a("Открыт контейнер") != null && this.dontHitWhen.a("Открыт контейнер").c().booleanValue()
                 && mc.currentScreen != null && !(mc.currentScreen instanceof GUIScreen)
                 && !(mc.currentScreen instanceof AssistantScreen))
-                || !AuraUtil.a(this.target, effReach)) {
+                || !AuraUtil.a(this.target, this.attackDistance.c().floatValue())) {
             return false;
         }
         if (Laura.getInstance().getModuleProcessor().t().H().e) {
@@ -318,10 +295,6 @@ public class Aura extends Module {
             }
         } else if (mc.player.getAttackCooldownProgress(0.5f) < 0.9f || this.attackCooldown < 10) {
             return false;
-        }
-        // FIX: when onlyCrits disabled, allow hits regardless of airborne state
-        if (!this.onlyCrits.c().booleanValue()) {
-            return true;
         }
         return AuraUtil.c()
                 || (this.adaptiveHits.c().booleanValue() && mc.player.isOnGround()
@@ -443,8 +416,7 @@ public class Aura extends Module {
     private void rotateToTarget() {
         Vec3d eye = mc.player.getEyePos();
         LivingEntity target = this.target;
-        float effReach = getEffectiveReach();
-        double reach = effReach;
+        double reach = this.attackDistance.c().floatValue();
         boolean throughWalls = this.rotationType.c().contains("ФанТайм")
                 || !this.dontHitWhen.a("Враг за стеной").c().booleanValue();
         Vec3d targetPosition = AuraUtil.a(eye, target, reach, throughWalls);
@@ -479,7 +451,7 @@ public class Aura extends Module {
                 this.timers[0] = 1.0f;
             }
         }
-        if (Laura.getInstance().getModuleProcessor().t().F().m() && canAttack() && AuraUtil.a(this.target, effReach)
+        if (Laura.getInstance().getModuleProcessor().t().F().m() && canAttack() && AuraUtil.a(this.target, 3.0d)
                 && mc.player.isGliding()) {
             Laura.getInstance().getModuleProcessor().k().startAiming(new Rotation(yawToTarget, pitchToTarget), 180.0f,
                     0, 3);
@@ -522,7 +494,6 @@ public class Aura extends Module {
 
     private void applyFantimeSmoothing(float yawToTarget, float pitchToTarget, Vec3d vec3d) {
         float time = mc.player.age + mc.getRenderTickCounter().getTickDelta(false);
-        float effReach = getEffectiveReach();
         float smoothW = (float) ((Math.sin(((double) time) * 0.4000000008323731d) * 3.0d)
                 + (Math.sin((((double) time) * 0.9500002390239708d) + 1.4000004888461306d) * 2.0d));
         float smoothH = (float) ((Math.cos((((double) time) * 0.5d) + 0.7000001555309916d) * 0.5d)
@@ -532,20 +503,19 @@ public class Aura extends Module {
                 MathUtil.a(0.1f, 0.5f));
         float finalYaw = AuraUtil.a(mc.player.getYaw(), yawToTarget + smoothW, MathUtil.a(0.1f, 0.4f));
         if (this.timers[3] >= 0.0f) {
-            if (!AuraUtil.a(mc.player.getYaw(), mc.player.getPitch(), effReach, this.target,
+            if (!AuraUtil.a(mc.player.getYaw(), mc.player.getPitch(), this.attackDistance.c().floatValue(), this.target,
                     true)
                     && this.timers[8] <= 0.0f) {
                 finalYaw = yawToTarget;
             }
-            if (!AuraUtil.a(yawToTarget, finalPitch, effReach, this.target, true)
+            if (!AuraUtil.a(yawToTarget, finalPitch, this.attackDistance.c().floatValue(), this.target, true)
                     && this.timers[8] <= 0.0f) {
                 finalPitch = pitchToTarget;
             }
-            // FIX: was using yaw+ smoothH for pitch check - corrected to pitch
-            if (!AuraUtil.a(mc.player.getYaw() + smoothW, mc.player.getPitch() + smoothH,
-                    effReach, this.target,
+            if (!AuraUtil.a(mc.player.getYaw() + smoothW, mc.player.getYaw() + smoothH,
+                    this.attackDistance.c().floatValue(), this.target,
                     true)
-                    && AuraUtil.a(mc.player.getYaw(), mc.player.getPitch(), effReach,
+                    && AuraUtil.a(mc.player.getYaw(), mc.player.getPitch(), this.attackDistance.c().floatValue(),
                             this.target, true)) {
                 smoothW = MathHelper.clamp(smoothW, -0.05f, 0.05f);
                 smoothH = MathHelper.clamp(smoothH, -0.05f, 0.05f);
@@ -561,7 +531,6 @@ public class Aura extends Module {
     }
 
     private void applyLegitSmoothing(float yawToTarget, float pitchToTarget, Vec3d vec3d) {
-        float effReach = getEffectiveReach();
         float t = mc.player.age + mc.getRenderTickCounter().getTickDelta(false);
         float fSin = ((float) (((Math.sin(t * 0.31f) * 0.5d) + (Math.sin((t * 1.7f) + 2.6f) * 0.2000000098386085d))
                 * 8.0d)) / 4.0f;
@@ -573,14 +542,14 @@ public class Aura extends Module {
             finalPitch = AuraUtil.a(mc.player.getPitch(), pitchToTarget, 0.35f);
             smoothH /= 3.0f;
             smoothW /= 3.0f;
-            if (!AuraUtil.a(mc.player.getYaw(), mc.player.getPitch(), effReach, this.target,
+            if (!AuraUtil.a(mc.player.getYaw(), mc.player.getPitch(), this.attackDistance.c().floatValue(), this.target,
                     true)) {
                 finalYaw = AuraUtil.a(mc.player.getYaw(), yawToTarget, MathUtil.a(0.7f, 1.0f));
             }
         }
-        if (!AuraUtil.a(finalYaw + smoothW, finalPitch + smoothH, effReach, this.target,
+        if (!AuraUtil.a(finalYaw + smoothW, finalPitch + smoothH, this.attackDistance.c().floatValue(), this.target,
                 true)
-                && AuraUtil.a(yawToTarget, pitchToTarget, effReach, this.target, true)) {
+                && AuraUtil.a(yawToTarget, pitchToTarget, this.attackDistance.c().floatValue(), this.target, true)) {
             smoothW = MathHelper.clamp(smoothW, -0.15f, 0.15f);
             smoothH = MathHelper.clamp(smoothH, -0.15f, 0.15f);
         }
