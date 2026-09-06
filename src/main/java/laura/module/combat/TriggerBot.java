@@ -213,10 +213,6 @@ public class TriggerBot extends Module {
         } else if (mc.player.getAttackCooldownProgress(0.5f) < 0.9f || this.d < 10) {
             return false;
         }
-        // FIX: when onlyCrits disabled, allow hits regardless of ground/air state
-        if (!this.g.a("Только критические удары").c().booleanValue()) {
-            return true;
-        }
         return AuraUtil.c() || (this.g.a("Адаптивные удары").c().booleanValue() && mc.player.isOnGround() && !mc.player.input.playerInput.jump()) || !AuraUtil.b();
     }
 
