@@ -214,7 +214,9 @@ Write-Ok "Клиент: $($clientJar.Name)"
 if (-not (Get-ChildItem $ModsDir -Filter 'fabric-api-*.jar' -ErrorAction SilentlyContinue)) {
     try {
         Write-Ok "Скачиваем Fabric API (Modrinth)..."
-        $api = Get-Json 'https://api.modrinth.com/v2/project/fabric-api/version?game_versions=%5B%221.21.4%22%5D&loaders=%5B%22fabric%22%5D'
+        # URL собираем через конкатенацию, чтобы PowerShell 5.1 не спотыкался об '&' в одиночных кавычках
+        $apiUrl = 'https://api.modrinth.com/v2/project/fabric-api/version' + '?game_versions=%5B%221.21.4%22%5D' + '&' + 'loaders=%5B%22fabric%22%5D'
+        $api = Get-Json $apiUrl
         $best = $null
         foreach ($v in $api) {
             if ($v.version_number -match '^0\.119\.4') { $best = $v; break }
