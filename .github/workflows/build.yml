@@ -19,6 +19,16 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew build --no-daemon
+        run: |
+          set -o pipefail
+          ./gradlew build --no-daemon --stacktrace 2>&1 | tee build_output.log
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            echo "Gradle failed with exit code $rc — last 60 lines:"
+            tail -n 60 build_output.log | while IFS= read -r line; do
+              echo "::error title=Gradle build failed::$line"
+            done
+            exit 1
+          fi
         env:
           TERM: dumb

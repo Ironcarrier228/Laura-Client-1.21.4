@@ -21,8 +21,8 @@ jobs:
           cache: gradle
 
       - name: Build client JAR
-        run: ./gradlew build --no-daemon
         shell: cmd
+        run: gradlew.bat build --no-daemon --stacktrace > build_output.log 2>&1 || (powershell -NoProfile -Command "Get-Content build_output.log -Tail 60 | ForEach-Object { Write-Host ('::error title=Gradle build failed::' + $_) }; exit 1")
 
       - name: Compile Inno Setup script
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.9
