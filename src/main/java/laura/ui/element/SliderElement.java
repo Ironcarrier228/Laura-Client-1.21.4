@@ -6,15 +6,22 @@ import laura.config.ThemeProcessor;
 import laura.core.Laura;
 import laura.render.ColorUtil;
 import laura.render.Draw2DProcessor;
+import laura.render.EasingList;
 import laura.render.Fonts;
+import laura.render.Spring;
 import laura.setting.SliderSetting;
 import laura.util.MathUtil;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.math.MatrixStack;
 import org.joml.Vector4f;
 
+/**
+ * Slider setting: label + value pill on top, track with animated fill and a
+ * spring-scaled knob below.
+ */
 public class SliderElement extends Element<SliderSetting> {
     private boolean isDragging;
+    private final Spring knobSpring = Spring.snappy();
 
     public SliderElement(SliderSetting setting) {
         super(setting);
@@ -76,26 +83,46 @@ public class SliderElement extends Element<SliderSetting> {
         MatrixStack matrices = context.getMatrices();
         Draw2DProcessor draw = Laura.getInstance().getModuleProcessor().i();
         ThemeProcessor theme = Laura.getInstance().getModuleProcessor().o();
+        int primary = theme.a(ThemeInfo.PRIMARY).toIntColor();
         this.a.w = 18.0f;
         if (this.isDragging) {
             updateSliderFromMouse(mouseX);
         }
         getActivationAnimation().c(MathUtil.c(getActivationAnimation().a(), (this.b.c().floatValue() - this.b.a) / (this.b.b - this.b.a), 1.0f));
-        float progress = getActivationAnimation().a();
+        float progress = MathUtil.b(getActivationAnimation().a(), 0.0f, 1.0f);
         boolean hovered = MathUtil.a(mouseX, mouseY, this.a.x, this.a.y, this.a.z, this.a.w) && extend >= 1.0f;
+
+        this.knobSpring.to((hovered || this.isDragging) ? 1.0f : 0.0f);
+        float knobScale = 1.0f + (0.35f * MathUtil.b(this.knobSpring.get(), 0.0f, 1.2f));
+
+        // Label + value pill
         float current = this.b.a + ((this.b.b - this.b.a) * progress);
         String value = this.b.c % 1.0f == 0.0f ? String.valueOf(Math.round(current)) : String.valueOf(Math.round(current * 100.0f) / 100.0f);
         float boxWidth = Fonts.c.a(value, 6.25f) + 6.0f;
         float boxHeight = Fonts.c.a(6.25f) + 2.0f;
         float boxX = (this.a.x + this.a.z) - boxWidth;
         drawLabel(matrices, Fonts.c, this.b.i(), this.a.x, this.a.y + 0.5f, Fonts.c.a(6.5f), 6.5f, theme.a(ThemeInfo.TEXT).toIntColor(), (boxX - this.a.x) - 4.0f, hovered, extend, delta);
-        draw.a(matrices, boxX, this.a.y, boxWidth, boxHeight, 2.0f, ColorUtil.applyAlphaToColor(theme.a(ThemeInfo.PRIMARY).toIntColor(), 0.03137255f * extend));
-        draw.a(matrices, boxX, this.a.y, boxWidth, boxHeight, 2.0f, 0.5f, ColorUtil.applyAlphaToColor(theme.a(ThemeInfo.OUTLINE_SMALL).toIntColor(), theme.a(ThemeInfo.OUTLINE_SMALL).getAlphaFloat() * extend));
+        draw.a(matrices, boxX, this.a.y, boxWidth, boxHeight, 2.5f, ColorUtil.applyAlphaToColor(primary, (0.10f + (0.15f * (this.isDragging ? 1.0f : 0.0f))) * extend));
+        draw.a(matrices, boxX, this.a.y, boxWidth, boxHeight, 2.5f, 0.5f, ColorUtil.applyAlphaToColor(theme.a(ThemeInfo.OUTLINE_SMALL).toIntColor(), theme.a(ThemeInfo.OUTLINE_SMALL).getAlphaFloat() * extend));
         Fonts.c.b(matrices, value, boxX + (boxWidth / 2.0f), (this.a.y + ((boxHeight - Fonts.c.a(6.25f)) / 2.0f)) - 0.5f, 6.25f, ColorUtil.applyAlphaToColor(theme.a(ThemeInfo.TEXT).toIntColor(), extend));
-        float trackY = this.a.y + Fonts.c.a(6.5f) + 6.5f;
-        draw.a(matrices, this.a.x, trackY, this.a.z, 3.0f, 0.75f, ColorUtil.applyAlphaToColor(ColorUtil.convertToARGB(50, 52, 60, 255), extend * 0.35f));
-        draw.a(matrices, this.a.x, trackY, this.a.z * progress, 3.0f, 0.75f, ColorUtil.applyAlphaToColor(theme.a(ThemeInfo.PRIMARY).toIntColor(), extend));
-        draw.a(matrices, this.a.x + ((this.a.z - 6.0f) * progress), (trackY + 1.5f) - 3.0f, 6.0f, 6.0f, 2.0f, ColorUtil.applyAlphaToColor(ColorUtil.convertToARGB(255, 255, 255, 255), extend));
+
+        // Track
+        float trackY = this.a.y + Fonts.c.a(6.5f) + 7.0f;
+        draw.a(matrices, this.a.x, trackY, this.a.z, 3.5f, 1.75f, ColorUtil.applyAlphaToColor(ColorUtil.convertToARGB(40, 42, 52, 255), extend * 0.55f));
+        float fillW = Math.max(3.5f, this.a.z * progress);
+        int fillEnd = ColorUtil.b(primary, 1.35f);
+        draw.a(matrices, this.a.x, trackY, fillW, 3.5f, 1.75f, ColorUtil.lerpColor(primary, fillEnd, progress));
+        // Glow under the fill
+        if (progress > 0.02f) {
+            draw.a(matrices, this.a.x, trackY - 1.0f, fillW, 5.5f, 2.75f, ColorUtil.applyAlphaToColor(primary, 0.18f * extend));
+        }
+        // Knob
+        float knobX = this.a.x + ((this.a.z - 6.0f) * progress) + 3.0f;
+        float knobSize = 6.5f * knobScale;
+        float knobY = (trackY + 1.75f) - (knobSize / 2.0f);
+        draw.a(matrices, knobX - (knobSize / 2.0f) + 0.5f, knobY + 1.0f, knobSize, knobSize, knobSize / 2.0f, ColorUtil.applyAlphaToColor(ColorUtil.convertToARGB(0, 0, 0, 255), 0.30f * extend));
+        draw.a(matrices, knobX - (knobSize / 2.0f), knobY, knobSize, knobSize, knobSize / 2.0f, ColorUtil.applyAlphaToColor(ColorUtil.convertToARGB(255, 255, 255, 255), extend));
+        draw.a(matrices, knobX - (knobSize / 2.0f), knobY, knobSize, knobSize, knobSize / 2.0f, 0.5f, ColorUtil.applyAlphaToColor(primary, 0.6f * extend));
     }
 
     private void updateSliderFromMouse(double mouseX) {

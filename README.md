@@ -37,8 +37,11 @@
 
 Ключевые особенности:
 
-- 🎨 **Кастомный GUI** — собственное главное меню, радиальное меню, альт-менеджер и
+- 🎨 **Кастомный GUI** — собственное главное меню (кнопки с пружинными hover/press
+  анимациями и каскадным появлением), радиальное меню, альт-менеджер и
   «клик-гуи» (StationScreen) с иконкой клиента.
+- 🌀 **Пружинная система анимаций** (`laura/render/Spring.java`) — физика пружины
+  с овершутом для hover, press, тумблеров и слайдеров; staggered-вход панелей GUI.
 - 🛠️ **107 модулей** в 5 категориях (Combat, Movement, Render, Player, Misc) с настройками.
 - ✨ **Собственные core-шейдеры** (blur, noise, rect, text), регистрируемые через
   `ShaderProgramKeys` до первого релоада ресурсов.
@@ -138,6 +141,19 @@
 | [Fabric Loader](https://fabricmc.net/use/installer/) | **≥ 0.16.5** (заявлено `0.18.4`) |
 | [Fabric API](https://modrinth.com/mod/fabric-api) | **0.119.4+1.21.4** |
 | Java | **21+** |
+
+### 🪟 Установщик для Windows (рекомендуется)
+В папке [`windows/`](windows/README.md) — готовый установщик: ставит Java 21
+(при отсутствии — через winget), чистый инстанс 1.21.4 + Fabric, клиент и
+Fabric API, и **сам запускает игру** без лаунчера Mojang.
+
+- **Быстро:** `gradlew build` → скопировать `build\libs\laura-client-*.jar` в
+  `windows\` → два клика на `laura-launch.bat`.
+- **Как .exe:** либо через GitHub Actions (workflow «Windows Installer» →
+  артефакт `Laura-Client-Setup` с готовым `Laura-Client-Setup.exe`), либо
+  локально: собрать `windows\Laura-Installer.iss` в Inno Setup 6 (ярлыки, без
+  прав администратора).
+- troubleshooting «установщик не запускается» — в [`windows/README.md`](windows/README.md).
 
 ### Готовый JAR
 1. Соберите или скачайте собранный `laura-client-*.jar`.

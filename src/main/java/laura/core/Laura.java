@@ -136,7 +136,7 @@ public class Laura {
                 module.g().a(module.n());
             }
             for (GUIPanel panel : e().c()) {
-                panel.b().a(0.0f, 1.0f, 0.3f, EasingList.g, event.g());
+                panel.b().a(0.0f, 1.0f, 0.22f, EasingList.g, event.g());
                 panel.b().a(Interface.mc.currentScreen instanceof GUIScreen);
             }
         }

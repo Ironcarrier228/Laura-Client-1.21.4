@@ -1,0 +1,38 @@
+name: Windows Installer
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build-installer:
+    name: Build Laura-Client-Setup.exe
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Build client JAR
+        shell: cmd
+        run: gradlew.bat build --no-daemon --stacktrace > build_output.log 2>&1 || (powershell -NoProfile -Command "$l = Select-String -Path build_output.log -Pattern 'FAILURE:|What went wrong|Caused by:|error:|Execution failed for task' | Select-Object -First 8; if ($l) { $l | ForEach-Object { Write-Host ('::error title=Gradle error::' + $_.Line) } } else { Get-Content build_output.log -Tail 12 | ForEach-Object { Write-Host ('::error title=Gradle tail::' + $_) } }; exit 1")
+
+      - name: Compile Inno Setup script
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.9
+        with:
+          path: windows/Laura-Installer.iss
+          options: /O+
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Laura-Client-Setup
+          path: windows/Output/Laura-Client-Setup.exe
+          if-no-files-found: error
