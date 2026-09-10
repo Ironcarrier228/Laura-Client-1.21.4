@@ -19,15 +19,22 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
+        shell: bash
         run: |
+          set +e
           set -o pipefail
           ./gradlew build --no-daemon --stacktrace 2>&1 | tee build_output.log
           rc=${PIPESTATUS[0]}
           if [ "$rc" -ne 0 ]; then
-            echo "Gradle failed with exit code $rc — last 60 lines:"
-            tail -n 60 build_output.log | while IFS= read -r line; do
-              echo "::error title=Gradle build failed::$line"
+            echo "Gradle failed (exit $rc). Extracting key error lines:"
+            grep -n -E "FAILURE:|What went wrong|Caused by:|error:|Execution failed for task" build_output.log | head -8 | while IFS= read -r line; do
+              echo "::error title=Gradle error::$line"
             done
+            if ! grep -q -E "FAILURE:|What went wrong|Caused by:|error:|Execution failed for task" build_output.log; then
+              tail -n 12 build_output.log | while IFS= read -r line; do
+                echo "::error title=Gradle tail::$line"
+              done
+            fi
             exit 1
           fi
         env:
