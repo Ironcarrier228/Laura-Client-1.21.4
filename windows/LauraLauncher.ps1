@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 Laura Client - запускатель для Windows.
 
@@ -432,7 +432,7 @@ $replacements = @{
     '${assets_index_name}'  = $assetIndexId
     '${auth_uuid}'          = $uuid
     '${auth_access_token}'  = $accessToken
-    '${auth_session}'       = "token:$accessToken:$uuid"
+    '${auth_session}'       = 'token:' + $accessToken + ':' + $uuid
     '${user_type}'          = 'mojang'
     '${version_type}'       = 'release'
     '${user_properties}'    = '{}'
