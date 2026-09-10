@@ -77,8 +77,9 @@ public class BooleanElement extends Element<BooleanSetting> {
         boolean hovered = MathUtil.a(mouseX, mouseY, this.a.x, this.a.y, this.a.z, this.a.w) && extend >= 1.0f;
 
         float labelW = (this.a.z - 16.0f) - 4.0f;
+        float hoverF = hovered ? 1.0f : 0.0f;
         drawLabel(matrices, Fonts.c, this.b.i(), this.a.x, this.a.y, this.a.w, 6.5f,
-                ColorUtil.lerpColor(theme.a(ThemeInfo.TEXT).toIntColor(), ColorUtil.convertToARGB(255, 255, 255, 255), 0.5f * hovered),
+                ColorUtil.lerpColor(theme.a(ThemeInfo.TEXT).toIntColor(), ColorUtil.convertToARGB(255, 255, 255, 255), 0.5f * hoverF),
                 labelW, hovered, extend, delta);
 
         // Track
