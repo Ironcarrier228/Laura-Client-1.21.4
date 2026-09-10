@@ -1,40 +1,49 @@
-# Sakura Launcher
+# Laura Launcher
 
-Anime-styled Minecraft launcher built with Electron.
+Electron-лаунчер для **Laura Client** на Minecraft 1.21.4. Лаунчер использует
+собранный `laura-client-*.jar` как Fabric-мод, автоматически подготавливает
+инстанс и запускает игру напрямую через Java.
 
-## Features
+## Возможности
 
-- **Tabs:** Play, Settings, Mods, Profile, About us, About project
-- **Launch options:** Vanilla / Forge / Fabric, offline or Microsoft auth
-- **Customizable:** RAM slider, Java path, instance path, resolution, fullscreen
-- **Anime UI:** glassmorphism, parallax background, falling sakura petals, neon pink/violet/cyan accents
-- **Config:** local `config.json` in userData
-- **Modular:** main / preload / config / launcher / renderer separated
+- **Запуск:** только Fabric для Minecraft 1.21.4.
+- **JAR клиента:** автоматический поиск в `build/libs`, `windows` и в ресурсах
+  собранного лаунчера; путь можно выбрать в настройках вручную.
+- **Подготовка инстанса:** Minecraft client JAR, Fabric-профиль, библиотеки,
+  нативные библиотеки и ассеты скачиваются только при первом запуске.
+- **Настройки:** RAM, Java, папка инстанса, разрешение, полноэкранный режим и
+  офлайн-профиль.
+- **Интерфейс:** локальный glassmorphism UI без внешних шрифтов и трекеров.
+- **Профиль проекта:** в разделе «О нас» указаны Ironcarrier и Fen; из внешних
+  социальных кнопок оставлен только Discord.
 
-## Project structure
+## Структура
 
 ```
 launcher/
 ├── package.json
 ├── README.md
-├── assets/                  (images, icons — add your own)
 └── src/
-    ├── main/                (Node — main process)
+    ├── main/
     │   ├── main.js          Electron entry, window + IPC
-    │   ├── preload.js       contextBridge API
-    │   ├── config.js        config.json load/save
-    │   └── launcher.js      Minecraft launch logic
-    └── renderer/            (Browser — UI)
-        ├── index.html       Layout
-        ├── styles/
-        │   ├── main.css     Variables, layout, sidebar, parallax
-        │   ├── components.css  Cards, sliders, toggles, buttons
-        │   └── animations.css  Keyframes
-        └── js/
-            └── app.js       UI logic, state, IPC calls
+    │   ├── preload.js       безопасный contextBridge API
+    │   ├── config.js        config.json и миграция на Fabric
+    │   └── launcher.js      подготовка Fabric и запуск Java
+    └── renderer/
+        ├── index.html       интерфейс
+        ├── styles/           CSS
+        └── js/app.js         логика UI и IPC-вызовы
 ```
 
-## Run
+## Запуск из исходников
+
+Сначала соберите JAR клиента из корня репозитория:
+
+```bash
+./gradlew build
+```
+
+Затем запустите лаунчер:
 
 ```bash
 cd launcher
@@ -42,44 +51,66 @@ npm install
 npm start
 ```
 
-Dev mode (with DevTools):
+Режим разработки с DevTools:
 
 ```bash
 npm run dev
 ```
 
-Build installer:
+Для сборки установщика `build/libs/laura-client-*.jar` должен существовать до
+запуска `npm run build`. Electron Builder положит его в ресурсы приложения:
 
 ```bash
 npm run build
 ```
 
-## Config
+## JAR клиента
 
-`config.json` is stored in:
-- Windows: `%APPDATA%\Sakura Launcher\config.json`
-- Linux: `~/.config/Sakura Launcher/config.json`
-- macOS: `~/Library/Application Support/Sakura Launcher/config.json`
+По умолчанию используется самый свежий файл, имя которого соответствует
+`laura-client-*.jar`, в одном из мест:
 
-Example:
+1. `resources/client` — упакованный лаунчер;
+2. `build/libs` — запуск из репозитория;
+3. `windows` — локальный Windows-дистрибутив;
+4. папка запуска лаунчера.
+
+Путь к конкретному JAR можно выбрать в **Настройки → Java и инстанс → JAR Laura
+Client**. Перед стартом лаунчер копирует выбранную сборку в
+`<инстанс>/mods`, удаляя только предыдущие JAR с именем `laura-client-*.jar`.
+
+## Конфигурация
+
+`config.json` хранится в системной папке Electron `userData` и содержит, среди
+прочего:
 
 ```json
 {
   "profile": { "nickname": "Player", "authMode": "offline" },
   "game": {
-    "version": "1.21.4", "loader": "vanilla",
-    "ramMin": 2048, "ramMax": 4096,
-    "javaPath": "", "instancePath": "",
-    "fullscreen": false, "width": 854, "height": 480,
-    "autoUpdate": true
-  },
-  "ui": { "accent": "#ff2d8a", "theme": "sakura", "animations": true },
-  "lastPlayed": null
+    "version": "1.21.4",
+    "loader": "fabric",
+    "fabricLoaderVersion": "0.18.4",
+    "clientJarPath": "",
+    "ramMin": 2048,
+    "ramMax": 4096,
+    "javaPath": "",
+    "instancePath": "",
+    "fullscreen": false,
+    "width": 854,
+    "height": 480
+  }
 }
 ```
 
-## Notes
+Старые конфиги с другим loader автоматически мигрируют на Fabric. Microsoft
+авторизация пока не подключена; для рабочего запуска выберите Offline.
 
-- `launcher.js` is a stub — it returns the launch command instead of actually spawning Java. To make it real, you need to download Minecraft client/libraries/assets and build the classpath, similar to the existing `windows/LauraLauncher.ps1` in this repo.
-- Background uses pure CSS gradients and animated radial overlays (no external image needed).
-- All animations can be disabled from Settings → Animations.
+## Примечания
+
+- Для запуска нужна JDK 21, потому что это требование Minecraft 1.21.4 и Laura
+  Client.
+- Первый запуск может занять несколько минут из-за загрузки официальных файлов
+  Minecraft, Fabric, библиотек и ассетов.
+- Лог запуска сохраняется в `laura-launcher.log` внутри папки инстанса.
+- Для онлайн-режима используйте только аккаунты и серверы, где это разрешено
+  правилами проекта и сервера.

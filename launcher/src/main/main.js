@@ -28,6 +28,20 @@ function createWindow() {
 
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
+    // Внешние ссылки из интерфейса открываются в браузере, а не внутри лаунчера.
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        const isDiscord = url === 'https://discord.com'
+            || url.startsWith('https://discord.com/')
+            || url.startsWith('https://discord.gg/');
+        const isGithubProfile = url === 'https://github.com/Ironcarrier228'
+            || url.startsWith('https://github.com/Ironcarrier228/')
+            || url === 'https://github.com/bakaforlive'
+            || url.startsWith('https://github.com/bakaforlive/');
+        if (isDiscord || isGithubProfile) shell.openExternal(url);
+        return { action: 'deny' };
+    });
+    mainWindow.webContents.on('will-navigate', event => event.preventDefault());
+
     if (process.argv.includes('--dev')) {
         mainWindow.webContents.openDevTools({ mode: 'detach' });
     }
@@ -56,6 +70,14 @@ ipcMain.handle('config:set', (_, data) => {
 ipcMain.handle('dialog:selectFolder', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
         properties: ['openDirectory']
+    });
+    return result.canceled ? null : result.filePaths[0];
+});
+
+ipcMain.handle('dialog:selectFile', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+        filters: [{ name: 'Fabric client JAR', extensions: ['jar'] }]
     });
     return result.canceled ? null : result.filePaths[0];
 });

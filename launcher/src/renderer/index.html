@@ -2,11 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src https://fonts.gstatic.com">
-    <title>Sakura Launcher</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+    <title>Laura Launcher</title>
     <link rel="stylesheet" href="styles/main.css">
     <link rel="stylesheet" href="styles/components.css">
     <link rel="stylesheet" href="styles/animations.css">
@@ -16,8 +13,8 @@
     <div class="titlebar">
         <div class="titlebar-drag">
             <div class="titlebar-logo">
-                <span class="logo-kanji">桜</span>
-                <span class="logo-text">Sakura Launcher</span>
+                <span class="logo-kanji">L</span>
+                <span class="logo-text">Laura Launcher</span>
             </div>
         </div>
         <div class="titlebar-controls">
@@ -89,8 +86,8 @@
                 <div class="hero-glow"></div>
                 <div class="hero-content">
                     <div class="hero-tag">Добро пожаловать, <span id="hero-nickname">Player</span>-сан ✨</div>
-                    <h1 class="hero-title">Sakura <span class="hero-title-accent">Launcher</span></h1>
-                    <p class="hero-subtitle">Запусти свой мир Minecraft с аниме-атмосферой</p>
+                    <h1 class="hero-title">Laura <span class="hero-title-accent">Launcher</span></h1>
+                    <p class="hero-subtitle">Запусти Laura Client в своём мире Minecraft</p>
 
                     <div class="status-card">
                         <div class="status-indicator"></div>
@@ -98,7 +95,7 @@
                             <div class="status-label">Статус</div>
                             <div class="status-value" id="play-status">Готов к запуску</div>
                         </div>
-                        <div class="status-version" id="play-version">1.21.4 · vanilla</div>
+                        <div class="status-version" id="play-version">1.21.4 · Fabric</div>
                     </div>
 
                     <button class="play-button" id="btn-play">
@@ -115,21 +112,15 @@
                     <div class="news-grid">
                         <article class="news-card">
                             <div class="news-card-tag">Обновление</div>
-                            <h3 class="news-card-title">Sakura Launcher 1.0</h3>
-                            <p class="news-card-text">Первый публичный релиз. Аниме-стиль, glassmorphism, плавные анимации.</p>
+                            <h3 class="news-card-title">Laura Launcher 1.0</h3>
+                            <p class="news-card-text">Первый релиз лаунчера для быстрого запуска Laura Client.</p>
                             <div class="news-card-date">10.09.2026</div>
                         </article>
                         <article class="news-card">
                             <div class="news-card-tag">Сборка</div>
-                            <h3 class="news-card-title">Fabric 1.21.4 готов</h3>
-                            <p class="news-card-text">Все моды обновлены до актуальных версий. Стабильная работа.</p>
+                            <h3 class="news-card-title">Laura Client 1.21.4</h3>
+                            <p class="news-card-text">JAR клиента автоматически устанавливается в Fabric-инстанс.</p>
                             <div class="news-card-date">08.09.2026</div>
-                        </article>
-                        <article class="news-card">
-                            <div class="news-card-tag">Сервер</div>
-                            <h3 class="news-card-title">Открытие сервера</h3>
-                            <p class="news-card-text">Аниме-RP сервер «Сакура» откроется в конце месяца.</p>
-                            <div class="news-card-date">05.09.2026</div>
                         </article>
                     </div>
                 </div>
@@ -173,7 +164,7 @@
                         <div class="card-icon card-icon--java">Java</div>
                         <div>
                             <h3 class="card-title">Java и инстанс</h3>
-                            <p class="card-desc">Путь к Java и папке игры</p>
+                            <p class="card-desc">Java, инстанс и JAR клиента</p>
                         </div>
                     </div>
                     <div class="card-body">
@@ -187,8 +178,15 @@
                         <label class="field">
                             <span class="field-label">Папка инстанса</span>
                             <div class="field-input">
-                                <input type="text" id="instance-path" placeholder="%LOCALAPPDATA%\SakuraClient">
+                                <input type="text" id="instance-path" placeholder="%LOCALAPPDATA%\Laura Client\instance">
                                 <button class="btn-ghost" data-browse="instance">Обзор</button>
+                            </div>
+                        </label>
+                        <label class="field">
+                            <span class="field-label">JAR Laura Client</span>
+                            <div class="field-input">
+                                <input type="text" id="client-jar-path" placeholder="Автопоиск в build\libs и папке лаунчера">
+                                <button class="btn-ghost" data-browse="clientJar">Обзор</button>
                             </div>
                         </label>
                     </div>
@@ -200,7 +198,7 @@
                         <div class="card-icon card-icon--game">MC</div>
                         <div>
                             <h3 class="card-title">Версия и загрузчик</h3>
-                            <p class="card-desc">Vanilla / Forge / Fabric</p>
+                            <p class="card-desc">Единственный загрузчик — Fabric</p>
                         </div>
                     </div>
                     <div class="card-body">
@@ -210,10 +208,8 @@
                         </label>
                         <div class="field">
                             <span class="field-label">Загрузчик</span>
-                            <div class="segmented">
-                                <button class="seg-btn active" data-loader="vanilla">Vanilla</button>
-                                <button class="seg-btn" data-loader="forge">Forge</button>
-                                <button class="seg-btn" data-loader="fabric">Fabric</button>
+                            <div class="segmented loader-selector" aria-label="Загрузчик Minecraft">
+                                <span class="seg-btn active" data-loader="fabric">Fabric</span>
                             </div>
                         </div>
                     </div>
@@ -356,39 +352,26 @@
         <section class="tab" data-tab="about">
             <header class="tab-header">
                 <h1 class="tab-title">О нас</h1>
-                <p class="tab-subtitle">Команда Sakura</p>
+                <p class="tab-subtitle">Ironcarrier и Fen</p>
             </header>
             <div class="team-grid">
-                <div class="member-card">
+                <article class="member-card">
                     <div class="member-avatar" data-color="pink"></div>
-                    <h3 class="member-name">Aiko</h3>
-                    <div class="member-role">Lead Developer</div>
-                    <p class="member-bio">Архитектор лаунчера, любит парallax и glassmorphism.</p>
-                </div>
-                <div class="member-card">
+                    <h3 class="member-name">Ironcarrier</h3>
+                    <div class="member-role">Разработка клиента</div>
+                    <p class="member-bio">Создание Laura Client и архитектура проекта.</p>
+                    <a class="member-github" href="https://github.com/Ironcarrier228" target="_blank" rel="noopener noreferrer">GitHub профиля</a>
+                </article>
+                <article class="member-card">
                     <div class="member-avatar" data-color="purple"></div>
-                    <h3 class="member-name">Hiroshi</h3>
-                    <div class="member-role">Backend Engineer</div>
-                    <p class="member-bio">Загрузка модов, Fabric-интеграция, оптимизация.</p>
-                </div>
-                <div class="member-card">
-                    <div class="member-avatar" data-color="cyan"></div>
-                    <h3 class="member-name">Sakura</h3>
-                    <div class="member-role">UI/UX Designer</div>
-                    <p class="member-bio">Аниме-стиль, типографика, иконки.</p>
-                </div>
-                <div class="member-card">
-                    <div class="member-avatar" data-color="violet"></div>
-                    <h3 class="member-name">Yuki</h3>
-                    <div class="member-role">Community Manager</div>
-                    <p class="member-bio">Discord, поддержка, сборка серверов.</p>
-                </div>
+                    <h3 class="member-name">Fen</h3>
+                    <div class="member-role">Разработка и дизайн</div>
+                    <p class="member-bio">Развитие клиента, интерфейсы и новые возможности.</p>
+                    <a class="member-github" href="https://github.com/bakaforlive" target="_blank" rel="noopener noreferrer">GitHub профиля</a>
+                </article>
             </div>
             <div class="socials">
-                <a class="social-link" href="#"><span>Discord</span></a>
-                <a class="social-link" href="#"><span>Telegram</span></a>
-                <a class="social-link" href="#"><span>VK</span></a>
-                <a class="social-link" href="#"><span>GitHub</span></a>
+                <a class="social-link social-link--discord" href="https://discord.com" target="_blank" rel="noopener noreferrer"><span>Discord</span></a>
             </div>
         </section>
 
@@ -396,19 +379,19 @@
         <section class="tab" data-tab="project">
             <header class="tab-header">
                 <h1 class="tab-title">О проекте</h1>
-                <p class="tab-subtitle">Sakura Launcher</p>
+                <p class="tab-subtitle">Laura Launcher</p>
             </header>
             <div class="card project-card">
                 <h3 class="card-title">Описание</h3>
                 <p class="project-text">
-                    Sakura Launcher — кастомный Minecraft лаунчер в аниме-стиле.
-                    Поддерживает Vanilla, Forge и Fabric, оффлайн-режим и Microsoft-авторизацию,
-                    гибкие настройки RAM и путей. Стек: Electron + HTML/CSS/JS.
+                    Laura Launcher — лаунчер для Laura Client в стиле glassmorphism.
+                    Он подготавливает Minecraft 1.21.4, устанавливает JAR клиента как Fabric-мод
+                    и запускает игру с выбранными настройками RAM и путей. Стек: Electron + HTML/CSS/JS.
                 </p>
                 <div class="changelog">
                     <h4 class="changelog-title">Changelog</h4>
                     <ul class="changelog-list">
-                        <li><span class="cl-version">v1.0.0</span> Первый публичный релиз. Аниме-UI, glassmorphism, парallax.</li>
+                        <li><span class="cl-version">v1.0.0</span> Первый релиз. Fabric-only запуск и автоматическая установка JAR клиента.</li>
                     </ul>
                 </div>
             </div>

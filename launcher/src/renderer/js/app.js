@@ -1,5 +1,5 @@
 // ============================================
-// Sakura Launcher — Renderer logic
+// Laura Launcher — Renderer logic
 // ============================================
 
 const $ = (s, ctx = document) => ctx.querySelector(s);
@@ -11,7 +11,7 @@ const $$ = (s, ctx = document) => Array.from(ctx.querySelectorAll(s));
 const state = {
     config: null,
     currentTab: 'play',
-    loader: 'vanilla',
+    loader: 'fabric',
     authMode: 'offline'
 };
 
@@ -40,8 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindSlider('ram-min', 'ram-min-value', v => `${v} МБ`);
     bindSlider('ram-max', 'ram-max-value', v => `${v} МБ`);
 
-    // Сегментированные кнопки
-    bindSegmented('[data-loader]', val => { state.loader = val; saveDebounced(); });
+    // Авторизация — загрузчик зафиксирован на Fabric.
     bindSegmented('[data-auth]', val => { state.authMode = val; saveDebounced(); });
 
     // Кнопка добавить мод
@@ -55,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Поля ввода — сохранение
-    ['java-path', 'instance-path', 'mc-version', 'nickname', 'res-width', 'res-height', 'fullscreen', 'autoupdate', 'animations']
+    ['java-path', 'instance-path', 'client-jar-path', 'mc-version', 'nickname', 'res-width', 'res-height', 'fullscreen', 'autoupdate', 'animations']
         .forEach(id => {
             const el = $('#' + id);
             if (!el) return;
@@ -72,7 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Стартовое сообщение
-    toast('Sakura Launcher запущен', 'success');
+    toast('Laura Launcher запущен', 'success');
 });
 
 // ============================================
@@ -102,18 +101,13 @@ async function onPlayClick() {
         await saveConfig();
 
         const result = await window.sakura.minecraft.launch({
-            loader: state.loader,
+            loader: 'fabric',
             authMode: state.authMode
         });
 
         if (result.success) {
-            if (result.mode === 'demo') {
-                status.textContent = 'Демо-режим (без реального запуска)';
-                toast(result.message, 'info');
-            } else {
-                status.textContent = 'Игра запущена';
-                toast('Minecraft запущен!', 'success');
-            }
+            status.textContent = 'Игра запущена';
+            toast(result.message || 'Laura Client запущен!', 'success');
             indicator.classList.remove('busy');
             // Обновляем статистику
             setTimeout(refreshProfile, 200);
@@ -158,6 +152,15 @@ function bindSegmented(selector, onChange) {
 // Browse folders
 // ============================================
 async function onBrowse(kind) {
+    if (kind === 'clientJar') {
+        const file = await window.sakura.dialog.selectFile();
+        if (file) {
+            $('#client-jar-path').value = file;
+            saveDebounced();
+        }
+        return;
+    }
+
     const folder = await window.sakura.dialog.selectFolder();
     if (!folder) return;
     if (kind === 'java') {
@@ -190,9 +193,10 @@ function applyConfigToUI() {
     $('#ram-max-value').textContent = `${c.game.ramMax} МБ`;
     $('#java-path').value = c.game.javaPath || '';
     $('#instance-path').value = c.game.instancePath || '';
+    $('#client-jar-path').value = c.game.clientJarPath || '';
     $('#mc-version').value = c.game.version;
-    state.loader = c.game.loader;
-    $$('[data-loader]').forEach(b => b.classList.toggle('active', b.dataset.loader === c.game.loader));
+    state.loader = 'fabric';
+    $$('[data-loader]').forEach(b => b.classList.toggle('active', b.dataset.loader === 'fabric'));
     $('#res-width').value = c.game.width;
     $('#res-height').value = c.game.height;
     $('#fullscreen').checked = c.game.fullscreen;
@@ -226,7 +230,9 @@ async function saveConfig() {
         },
         game: {
             version: $('#mc-version').value,
-            loader: state.loader,
+            loader: 'fabric',
+            fabricLoaderVersion: state.config?.game?.fabricLoaderVersion || '0.18.4',
+            clientJarPath: $('#client-jar-path').value,
             ramMin: parseInt($('#ram-min').value, 10),
             ramMax: parseInt($('#ram-max').value, 10),
             javaPath: $('#java-path').value,
@@ -238,7 +244,7 @@ async function saveConfig() {
         },
         ui: {
             accent: '#ff2d8a',
-            theme: 'sakura',
+            theme: 'laura',
             animations: $('#animations').checked
         }
     });
