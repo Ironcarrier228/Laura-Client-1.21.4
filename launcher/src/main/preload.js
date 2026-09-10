@@ -15,7 +15,8 @@ contextBridge.exposeInMainWorld('sakura', {
     },
     // Системные диалоги
     dialog: {
-        selectFolder: () => ipcRenderer.invoke('dialog:selectFolder')
+        selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
+        selectFile: () => ipcRenderer.invoke('dialog:selectFile')
     },
     // Minecraft
     minecraft: {

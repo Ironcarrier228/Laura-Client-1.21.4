@@ -1,7 +1,9 @@
-// Модуль работы с конфигом
+// Модуль работы с конфигом лаунчера
 const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
+
+const FABRIC_LOADER = 'fabric';
 
 const DEFAULT_CONFIG = {
     profile: {
@@ -12,7 +14,9 @@ const DEFAULT_CONFIG = {
     game: {
         instancePath: '',
         version: '1.21.4',
-        loader: 'vanilla', // vanilla | forge | fabric
+        loader: FABRIC_LOADER,
+        fabricLoaderVersion: '0.18.4',
+        clientJarPath: '',
         ramMin: 2048,
         ramMax: 4096,
         javaPath: '',
@@ -23,7 +27,7 @@ const DEFAULT_CONFIG = {
     },
     ui: {
         accent: '#ff2d8a',
-        theme: 'sakura',
+        theme: 'laura',
         animations: true
     },
     lastPlayed: null
@@ -39,13 +43,14 @@ class Config {
         try {
             if (fs.existsSync(this.configPath)) {
                 const raw = fs.readFileSync(this.configPath, 'utf-8');
-                return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+                return this.normalize(this.deepMerge(DEFAULT_CONFIG, JSON.parse(raw)));
             }
         } catch (err) {
             console.error('Config load error:', err);
         }
-        this.save(DEFAULT_CONFIG);
-        return { ...DEFAULT_CONFIG };
+        const defaults = this.normalize(this.deepMerge({}, DEFAULT_CONFIG));
+        this.save(defaults);
+        return defaults;
     }
 
     save(data = this.data) {
@@ -63,14 +68,39 @@ class Config {
     }
 
     set(patch) {
-        this.data = this.deepMerge(this.data, patch);
+        this.data = this.normalize(this.deepMerge(this.data, patch));
         this.save();
         return this.data;
     }
 
+    normalize(data) {
+        const out = this.deepMerge({}, data || {});
+        out.profile = out.profile || {};
+        out.game = out.game || {};
+        out.ui = out.ui || {};
+
+        // Лаунчер поддерживает только Fabric: старые значения мигрируются
+        // автоматически, а значение из renderer не может включить другой loader.
+        out.game.loader = FABRIC_LOADER;
+        out.game.version = String(out.game.version || DEFAULT_CONFIG.game.version);
+        out.game.fabricLoaderVersion = String(
+            out.game.fabricLoaderVersion || DEFAULT_CONFIG.game.fabricLoaderVersion
+        );
+        out.game.clientJarPath = typeof out.game.clientJarPath === 'string'
+            ? out.game.clientJarPath
+            : '';
+        out.profile.nickname = String(out.profile.nickname || DEFAULT_CONFIG.profile.nickname)
+            .replace(/[\r\n]/g, '')
+            .slice(0, 16) || DEFAULT_CONFIG.profile.nickname;
+        if (!['offline', 'microsoft'].includes(out.profile.authMode)) {
+            out.profile.authMode = DEFAULT_CONFIG.profile.authMode;
+        }
+        return out;
+    }
+
     deepMerge(target, source) {
         const out = { ...target };
-        for (const key of Object.keys(source)) {
+        for (const key of Object.keys(source || {})) {
             if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
                 out[key] = this.deepMerge(target[key] || {}, source[key]);
             } else {
@@ -80,5 +110,8 @@ class Config {
         return out;
     }
 }
+
+Config.FABRIC_LOADER = FABRIC_LOADER;
+Config.DEFAULT_CONFIG = DEFAULT_CONFIG;
 
 module.exports = Config;

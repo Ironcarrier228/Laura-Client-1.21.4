@@ -478,6 +478,11 @@
     box-shadow: 0 2px 8px rgba(255, 45, 138, 0.3);
 }
 
+.loader-selector .seg-btn {
+    cursor: default;
+    text-align: center;
+}
+
 /* ---------- Toggle ---------- */
 .toggle {
     display: flex;
@@ -820,6 +825,26 @@
     font-size: 13px;
     color: var(--text-dim);
     line-height: 1.5;
+    margin-bottom: 14px;
+}
+
+.member-github {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-size: 12px;
+    text-decoration: none;
+    transition: all var(--transition);
+}
+
+.member-github:hover {
+    color: var(--text);
+    border-color: var(--accent);
+    background: rgba(255, 45, 138, 0.1);
 }
 
 .socials {

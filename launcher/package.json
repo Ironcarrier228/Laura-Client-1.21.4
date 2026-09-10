@@ -1,28 +1,35 @@
 {
-  "name": "sakura-launcher",
+  "name": "laura-launcher",
   "version": "1.0.0",
-  "description": "Anime-styled Minecraft launcher",
+  "description": "Fabric launcher for Laura Client",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
     "dev": "electron . --dev"
   },
-  "author": "Sakura Team",
+  "author": "Ironcarrier and Fen",
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1"
   },
   "build": {
-    "appId": "com.sakura.launcher",
-    "productName": "Sakura Launcher",
+    "appId": "com.laura.client.launcher",
+    "productName": "Laura Launcher",
     "win": {
       "target": "nsis"
     },
     "files": [
       "src/**/*",
       "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../build/libs",
+        "to": "client",
+        "filter": ["laura-client-*.jar"]
+      }
     ]
   }
 }

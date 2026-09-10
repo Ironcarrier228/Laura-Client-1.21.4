@@ -1,6 +1,6 @@
 /* ============================================
-   Sakura Launcher — Main styles
-   Аниме-стиль, glassmorphism, неоновые акценты
+   Laura Launcher — Main styles
+   glassmorphism, неоновые акценты
    ============================================ */
 
 :root {
@@ -38,8 +38,8 @@
     --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.4);
     --shadow-glow: 0 0 24px var(--accent-glow);
 
-    --font-base: 'Rubik', 'M PLUS Rounded 1c', system-ui, sans-serif;
-    --font-jp: 'M PLUS Rounded 1c', 'Rubik', system-ui, sans-serif;
+    --font-base: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-jp: system-ui, -apple-system, "Segoe UI", sans-serif;
 
     --sidebar-w: 240px;
     --titlebar-h: 38px;
