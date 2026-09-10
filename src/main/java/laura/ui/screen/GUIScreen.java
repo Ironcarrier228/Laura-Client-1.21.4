@@ -1,6 +1,7 @@
 package laura.ui.screen;
 
 
+import laura.config.ThemeInfo;
 import laura.core.Category;
 import laura.core.Laura;
 import laura.core.Interface;
@@ -27,6 +28,7 @@ public class GUIScreen extends Screen {
     private final TextField a;
     private final AnimationUtil b;
     private final List<GUIPanel> c;
+    private final AnimationUtil focusAnim = new AnimationUtil();
     private String d;
 
     public GUIScreen(Text title) {
@@ -34,8 +36,11 @@ public class GUIScreen extends Screen {
         this.a = new TextField(TextField.type.GUI);
         this.b = new AnimationUtil();
         this.c = new ArrayList<>();
+        int panelIndex = 0;
         for (Category category : Category.values()) {
-            this.c.add(new GUIPanel(category));
+            GUIPanel panel = new GUIPanel(category);
+            panel.setIndex(panelIndex++);
+            this.c.add(panel);
         }
         this.a.setPlaceholder("Поиск по модулям");
     }
@@ -83,6 +88,10 @@ public class GUIScreen extends Screen {
         float f2 = (iMethod_4486 - f) * 0.5f;
         float f3 = f2;
         float f4 = 0.0f;
+        // staggered entrance: each panel cascades in with a delay based on its index
+        float baseOpen = this.c.getFirst().b().c();
+        float span = 1.0f + (0.18f * (this.c.size() - 1));
+        int staggerIndex = 0;
         for (final GUIPanel gUIPanel : this.c) {
             Vector4f vector4fF = gUIPanel.f();
             gUIPanel.a(Laura.getInstance().getModuleProcessor().t().e().stream().filter(obj -> this.a(gUIPanel, obj)).sorted(Comparator.comparing(new Function<Module, String>() {
@@ -94,8 +103,10 @@ public class GUIScreen extends Screen {
             vector4fF.x = f3;
             vector4fF.y = (class_310Var.getWindow().getScaledHeight() - vector4fF.w) * 0.5f;
             f4 = vector4fF.y;
-            gUIPanel.a(context, (int) dA, (int) dA2, delta);
+            float openI = MathUtil.b((baseOpen * span) - (staggerIndex * 0.18f), 0.0f, 1.0f);
+            gUIPanel.a(context, (int) dA, (int) dA2, delta, openI);
             f3 += vector4fF.z + 8.0f;
+            staggerIndex++;
         }
         Iterator<GUIPanel> it = this.c.iterator();
         while (it.hasNext()) {
@@ -116,6 +127,7 @@ public class GUIScreen extends Screen {
         class_4587VarMethod_51448.scale(f10, f10, 1.0f);
         class_4587VarMethod_51448.translate(-f6, -f8, 0.0f);
         a(context, f6, f7, (int) dA, (int) dA2, delta);
+        a(class_4587VarMethod_51448, f6, f7, delta, fC);
         class_4587VarMethod_51448.pop();
         a(context.getMatrices(), f6, f4, delta);
         ScaleUtil.a(context);
@@ -233,6 +245,20 @@ public class GUIScreen extends Screen {
         this.a.setSize(new Vector2f(100.0f, 20.0f));
         this.a.setPosition(new Vector2f(centerX - 50.0f, panelBottom + 12.0f));
         this.a.render(context, mouseX, mouseY, delta, 1.0f);
+    }
+
+    /** Animated primary underline under the search field while it is focused. */
+    private void a(MatrixStack matrices, float centerX, float panelBottom, float delta, float open) {
+        this.focusAnim.a(this.a.isFocused());
+        this.focusAnim.a(0.0f, 1.0f, 0.35f, EasingList.i, delta);
+        float v = MathUtil.b(this.focusAnim.c(), 0.0f, 1.0f) * MathUtil.b(open * 2.0f, 0.0f, 1.0f);
+        if (v <= 0.01f) {
+            return;
+        }
+        Draw2DProcessor draw = Laura.getInstance().getModuleProcessor().i();
+        int primary = Laura.getInstance().getModuleProcessor().o().a(ThemeInfo.PRIMARY).toIntColor();
+        float w = 100.0f * v;
+        draw.a(matrices, centerX - (w / 2.0f), panelBottom + 34.5f, w, 1.0f, 0.5f, ColorUtil.applyAlphaToColor(primary, 0.9f * v));
     }
 
     private void a(MatrixStack matrices, float centerX, float panelTop, float delta) {
