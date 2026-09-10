@@ -1,0 +1,38 @@
+name: Windows Installer
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build-installer:
+    name: Build Laura-Client-Setup.exe
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Build client JAR
+        run: ./gradlew build --no-daemon
+        shell: cmd
+
+      - name: Compile Inno Setup script
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.9
+        with:
+          path: windows/Laura-Installer.iss
+          options: /O+
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Laura-Client-Setup
+          path: windows/Output/Laura-Client-Setup.exe
+          if-no-files-found: error

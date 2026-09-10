@@ -28,6 +28,16 @@
 
 ## Сборка установщика .exe
 
+### Вариант 1 — через GitHub Actions (без Windows под рукой)
+Просто запушь изменения (или запусти вручную): workflow
+[`.github/workflows/installer.yml`](../.github/workflows/installer.yml)
+сам собирает JAR и компилирует `Laura-Installer.iss`.
+
+Готовый файл скачиваешь: **GitHub → вкладка Actions → «Windows Installer» →
+последний зелёный ран → артефакт `Laura-Client-Setup`** → внутри
+`Laura-Client-Setup.exe`.
+
+### Вариант 2 — локально (Inno Setup 6)
 1. Установите **Inno Setup 6** (бесплатно): https://jrsoftware.org/isdl.php
 2. Соберите клиент: `gradlew build`.
 3. Откройте `Laura-Installer.iss` в Inno Setup IDE → **Compile**.

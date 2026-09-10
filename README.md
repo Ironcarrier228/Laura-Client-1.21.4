@@ -149,8 +149,10 @@ Fabric API, и **сам запускает игру** без лаунчера Mo
 
 - **Быстро:** `gradlew build` → скопировать `build\libs\laura-client-*.jar` в
   `windows\` → два клика на `laura-launch.bat`.
-- **Как .exe:** собрать `windows\Laura-Installer.iss` в Inno Setup 6 →
-  `windows\Output\Laura-Client-Setup.exe` (ярлыки, без прав администратора).
+- **Как .exe:** либо через GitHub Actions (workflow «Windows Installer» →
+  артефакт `Laura-Client-Setup` с готовым `Laura-Client-Setup.exe`), либо
+  локально: собрать `windows\Laura-Installer.iss` в Inno Setup 6 (ярлыки, без
+  прав администратора).
 - troubleshooting «установщик не запускается» — в [`windows/README.md`](windows/README.md).
 
 ### Готовый JAR
