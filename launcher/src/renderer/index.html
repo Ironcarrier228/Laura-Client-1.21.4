@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src https://fonts.gstatic.com">
+    <title>Sakura Launcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/animations.css">
+</head>
+<body>
+    <!-- Кастомный titlebar -->
+    <div class="titlebar">
+        <div class="titlebar-drag">
+            <div class="titlebar-logo">
+                <span class="logo-kanji">桜</span>
+                <span class="logo-text">Sakura Launcher</span>
+            </div>
+        </div>
+        <div class="titlebar-controls">
+            <button class="titlebar-btn" id="btn-minimize" aria-label="Свернуть">
+                <svg width="12" height="12" viewBox="0 0 12 12"><rect y="5" width="12" height="2" fill="currentColor"/></svg>
+            </button>
+            <button class="titlebar-btn" id="btn-maximize" aria-label="Развернуть">
+                <svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+            </button>
+            <button class="titlebar-btn titlebar-btn--close" id="btn-close" aria-label="Закрыть">
+                <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 1 L11 11 M11 1 L1 11" stroke="currentColor" stroke-width="1.5"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Парallax фон -->
+    <div class="parallax">
+        <div class="parallax-layer parallax-layer--back"></div>
+        <div class="parallax-layer parallax-layer--mid"></div>
+        <div class="parallax-layer parallax-layer--front"></div>
+        <div class="parallax-overlay"></div>
+    </div>
+
+    <!-- Плавающие sakura-лепестки -->
+    <div class="sakura-petal" style="--x:10%; --delay:0s; --duration:18s; --size:14px"></div>
+    <div class="sakura-petal" style="--x:30%; --delay:3s; --duration:22s; --size:18px"></div>
+    <div class="sakura-petal" style="--x:55%; --delay:7s; --duration:20s; --size:12px"></div>
+    <div class="sakura-petal" style="--x:75%; --delay:2s; --duration:24s; --size:16px"></div>
+    <div class="sakura-petal" style="--x:90%; --delay:10s; --duration:19s; --size:14px"></div>
+
+    <!-- Боковое меню -->
+    <aside class="sidebar">
+        <nav class="nav">
+            <button class="nav-item active" data-tab="play">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                <span>Главная</span>
+            </button>
+            <button class="nav-item" data-tab="settings">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" fill="currentColor"/></svg>
+                <span>Настройки</span>
+            </button>
+            <button class="nav-item" data-tab="mods">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20.5 11H17V7.5a1.5 1.5 0 0 0-3 0V11h-3.5a3.5 3.5 0 0 0 0 7H14v3.5a1.5 1.5 0 0 0 3 0V18h3.5a3.5 3.5 0 0 0 0-7z" fill="currentColor"/></svg>
+                <span>Моды</span>
+            </button>
+            <button class="nav-item" data-tab="profile">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/></svg>
+                <span>Профиль</span>
+            </button>
+            <button class="nav-item" data-tab="about">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" fill="currentColor"/></svg>
+                <span>О нас</span>
+            </button>
+            <button class="nav-item" data-tab="project">
+                <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" fill="currentColor"/></svg>
+                <span>О проекте</span>
+            </button>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="version-badge">v1.0.0</div>
+        </div>
+    </aside>
+
+    <!-- Основной контент -->
+    <main class="content">
+        <!-- PLAY -->
+        <section class="tab active" data-tab="play">
+            <div class="hero">
+                <div class="hero-glow"></div>
+                <div class="hero-content">
+                    <div class="hero-tag">Добро пожаловать, <span id="hero-nickname">Player</span>-сан ✨</div>
+                    <h1 class="hero-title">Sakura <span class="hero-title-accent">Launcher</span></h1>
+                    <p class="hero-subtitle">Запусти свой мир Minecraft с аниме-атмосферой</p>
+
+                    <div class="status-card">
+                        <div class="status-indicator"></div>
+                        <div class="status-text">
+                            <div class="status-label">Статус</div>
+                            <div class="status-value" id="play-status">Готов к запуску</div>
+                        </div>
+                        <div class="status-version" id="play-version">1.21.4 · vanilla</div>
+                    </div>
+
+                    <button class="play-button" id="btn-play">
+                        <span class="play-button-bg"></span>
+                        <span class="play-button-content">
+                            <svg class="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                            <span class="play-label">ИГРАТЬ</span>
+                        </span>
+                    </button>
+                </div>
+
+                <div class="news-section">
+                    <h2 class="section-title"><span class="title-bar"></span>Новости</h2>
+                    <div class="news-grid">
+                        <article class="news-card">
+                            <div class="news-card-tag">Обновление</div>
+                            <h3 class="news-card-title">Sakura Launcher 1.0</h3>
+                            <p class="news-card-text">Первый публичный релиз. Аниме-стиль, glassmorphism, плавные анимации.</p>
+                            <div class="news-card-date">10.09.2026</div>
+                        </article>
+                        <article class="news-card">
+                            <div class="news-card-tag">Сборка</div>
+                            <h3 class="news-card-title">Fabric 1.21.4 готов</h3>
+                            <p class="news-card-text">Все моды обновлены до актуальных версий. Стабильная работа.</p>
+                            <div class="news-card-date">08.09.2026</div>
+                        </article>
+                        <article class="news-card">
+                            <div class="news-card-tag">Сервер</div>
+                            <h3 class="news-card-title">Открытие сервера</h3>
+                            <p class="news-card-text">Аниме-RP сервер «Сакура» откроется в конце месяца.</p>
+                            <div class="news-card-date">05.09.2026</div>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SETTINGS -->
+        <section class="tab" data-tab="settings">
+            <header class="tab-header">
+                <h1 class="tab-title">Настройки</h1>
+                <p class="tab-subtitle">Сделай лаунчер своим</p>
+            </header>
+
+            <div class="settings-grid">
+                <!-- RAM -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon card-icon--ram">RAM</div>
+                        <div>
+                            <h3 class="card-title">Оперативная память</h3>
+                            <p class="card-desc">Сколько RAM выделить игре</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="slider-row">
+                            <span class="slider-label">Минимум</span>
+                            <input type="range" class="slider" id="ram-min" min="512" max="16384" step="256" value="2048">
+                            <span class="slider-value" id="ram-min-value">2048 МБ</span>
+                        </div>
+                        <div class="slider-row">
+                            <span class="slider-label">Максимум</span>
+                            <input type="range" class="slider" id="ram-max" min="1024" max="32768" step="256" value="4096">
+                            <span class="slider-value" id="ram-max-value">4096 МБ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Java / Instance -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon card-icon--java">Java</div>
+                        <div>
+                            <h3 class="card-title">Java и инстанс</h3>
+                            <p class="card-desc">Путь к Java и папке игры</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <label class="field">
+                            <span class="field-label">Путь к Java (опционально)</span>
+                            <div class="field-input">
+                                <input type="text" id="java-path" placeholder="Оставьте пустым для автопоиска">
+                                <button class="btn-ghost" data-browse="java">Обзор</button>
+                            </div>
+                        </label>
+                        <label class="field">
+                            <span class="field-label">Папка инстанса</span>
+                            <div class="field-input">
+                                <input type="text" id="instance-path" placeholder="%LOCALAPPDATA%\SakuraClient">
+                                <button class="btn-ghost" data-browse="instance">Обзор</button>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Версия / загрузчик -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon card-icon--game">MC</div>
+                        <div>
+                            <h3 class="card-title">Версия и загрузчик</h3>
+                            <p class="card-desc">Vanilla / Forge / Fabric</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <label class="field">
+                            <span class="field-label">Версия Minecraft</span>
+                            <input type="text" id="mc-version" value="1.21.4">
+                        </label>
+                        <div class="field">
+                            <span class="field-label">Загрузчик</span>
+                            <div class="segmented">
+                                <button class="seg-btn active" data-loader="vanilla">Vanilla</button>
+                                <button class="seg-btn" data-loader="forge">Forge</button>
+                                <button class="seg-btn" data-loader="fabric">Fabric</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Экран -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon card-icon--screen">⛶</div>
+                        <div>
+                            <h3 class="card-title">Разрешение</h3>
+                            <p class="card-desc">Размер окна и полноэкранный режим</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row-2">
+                            <label class="field">
+                                <span class="field-label">Ширина</span>
+                                <input type="number" id="res-width" value="854" min="640" max="3840">
+                            </label>
+                            <label class="field">
+                                <span class="field-label">Высота</span>
+                                <input type="number" id="res-height" value="480" min="480" max="2160">
+                            </label>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" id="fullscreen">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="toggle-label">Полноэкранный режим</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Аккаунт -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon card-icon--user">@</div>
+                        <div>
+                            <h3 class="card-title">Аккаунт</h3>
+                            <p class="card-desc">Никнейм и тип авторизации</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <label class="field">
+                            <span class="field-label">Никнейм</span>
+                            <input type="text" id="nickname" value="Player" maxlength="16">
+                        </label>
+                        <div class="field">
+                            <span class="field-label">Режим авторизации</span>
+                            <div class="segmented">
+                                <button class="seg-btn active" data-auth="offline">Offline</button>
+                                <button class="seg-btn" data-auth="microsoft">Microsoft</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Прочее -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-icon card-icon--misc">⚙</div>
+                        <div>
+                            <h3 class="card-title">Дополнительно</h3>
+                            <p class="card-desc">Обновления и интерфейс</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <label class="toggle">
+                            <input type="checkbox" id="autoupdate" checked>
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="toggle-label">Автообновление лаунчера</span>
+                        </label>
+                        <label class="toggle">
+                            <input type="checkbox" id="animations" checked>
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="toggle-label">Плавные анимации</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODS -->
+        <section class="tab" data-tab="mods">
+            <header class="tab-header">
+                <h1 class="tab-title">Моды</h1>
+                <p class="tab-subtitle">Управление установленными модами</p>
+            </header>
+            <div class="mods-toolbar">
+                <input type="text" class="search-input" id="mods-search" placeholder="Поиск мода...">
+                <button class="btn-primary" id="btn-add-mod">+ Добавить .jar</button>
+            </div>
+            <div class="mods-list" id="mods-list">
+                <div class="empty-state">Здесь будет список модов из вашей папки mods</div>
+            </div>
+        </section>
+
+        <!-- PROFILE -->
+        <section class="tab" data-tab="profile">
+            <header class="tab-header">
+                <h1 class="tab-title">Профиль</h1>
+                <p class="tab-subtitle">Твой аккаунт и статистика</p>
+            </header>
+            <div class="profile-grid">
+                <div class="profile-card">
+                    <div class="avatar">
+                        <div class="avatar-glow"></div>
+                        <div class="avatar-head"></div>
+                        <div class="avatar-body"></div>
+                    </div>
+                    <h2 class="profile-nick" id="profile-nick">Player</h2>
+                    <div class="profile-mode" id="profile-mode">Offline-режим</div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">⏱</div>
+                        <div class="stat-value" id="stat-playtime">0 ч</div>
+                        <div class="stat-label">Время в игре</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">▶</div>
+                        <div class="stat-value" id="stat-launches">0</div>
+                        <div class="stat-label">Запусков</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">★</div>
+                        <div class="stat-value" id="stat-mods">0</div>
+                        <div class="stat-label">Модов</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">♕</div>
+                        <div class="stat-value" id="stat-last">—</div>
+                        <div class="stat-label">Последний запуск</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABOUT US -->
+        <section class="tab" data-tab="about">
+            <header class="tab-header">
+                <h1 class="tab-title">О нас</h1>
+                <p class="tab-subtitle">Команда Sakura</p>
+            </header>
+            <div class="team-grid">
+                <div class="member-card">
+                    <div class="member-avatar" data-color="pink"></div>
+                    <h3 class="member-name">Aiko</h3>
+                    <div class="member-role">Lead Developer</div>
+                    <p class="member-bio">Архитектор лаунчера, любит парallax и glassmorphism.</p>
+                </div>
+                <div class="member-card">
+                    <div class="member-avatar" data-color="purple"></div>
+                    <h3 class="member-name">Hiroshi</h3>
+                    <div class="member-role">Backend Engineer</div>
+                    <p class="member-bio">Загрузка модов, Fabric-интеграция, оптимизация.</p>
+                </div>
+                <div class="member-card">
+                    <div class="member-avatar" data-color="cyan"></div>
+                    <h3 class="member-name">Sakura</h3>
+                    <div class="member-role">UI/UX Designer</div>
+                    <p class="member-bio">Аниме-стиль, типографика, иконки.</p>
+                </div>
+                <div class="member-card">
+                    <div class="member-avatar" data-color="violet"></div>
+                    <h3 class="member-name">Yuki</h3>
+                    <div class="member-role">Community Manager</div>
+                    <p class="member-bio">Discord, поддержка, сборка серверов.</p>
+                </div>
+            </div>
+            <div class="socials">
+                <a class="social-link" href="#"><span>Discord</span></a>
+                <a class="social-link" href="#"><span>Telegram</span></a>
+                <a class="social-link" href="#"><span>VK</span></a>
+                <a class="social-link" href="#"><span>GitHub</span></a>
+            </div>
+        </section>
+
+        <!-- ABOUT PROJECT -->
+        <section class="tab" data-tab="project">
+            <header class="tab-header">
+                <h1 class="tab-title">О проекте</h1>
+                <p class="tab-subtitle">Sakura Launcher</p>
+            </header>
+            <div class="card project-card">
+                <h3 class="card-title">Описание</h3>
+                <p class="project-text">
+                    Sakura Launcher — кастомный Minecraft лаунчер в аниме-стиле.
+                    Поддерживает Vanilla, Forge и Fabric, оффлайн-режим и Microsoft-авторизацию,
+                    гибкие настройки RAM и путей. Стек: Electron + HTML/CSS/JS.
+                </p>
+                <div class="changelog">
+                    <h4 class="changelog-title">Changelog</h4>
+                    <ul class="changelog-list">
+                        <li><span class="cl-version">v1.0.0</span> Первый публичный релиз. Аниме-UI, glassmorphism, парallax.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

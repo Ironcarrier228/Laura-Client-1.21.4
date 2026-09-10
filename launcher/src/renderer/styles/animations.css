@@ -1,0 +1,64 @@
+/* ============================================
+   Animations
+   ============================================ */
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes slide-down {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50%      { opacity: 0.8; transform: scale(1.05); }
+}
+
+@keyframes kanji-pulse {
+    0%, 100% { text-shadow: 0 0 12px var(--accent-glow); }
+    50%      { text-shadow: 0 0 24px var(--accent-glow), 0 0 40px rgba(255, 45, 138, 0.4); }
+}
+
+@keyframes drift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%      { transform: translate(-2%, 1%) scale(1.02); }
+    66%      { transform: translate(2%, -1%) scale(1.01); }
+}
+
+@keyframes petal-fall {
+    0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    10%  { opacity: 0.7; }
+    90%  { opacity: 0.7; }
+    100% { transform: translate(-100px, 110vh) rotate(720deg); opacity: 0; }
+}
+
+@keyframes petal-spin {
+    from { filter: hue-rotate(0deg); }
+    to   { filter: hue-rotate(360deg); }
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toast-out {
+    from { opacity: 1; transform: translateX(0); }
+    to   { opacity: 0; transform: translateX(20px); }
+}
+
+/* Если анимации отключены — респектим настройку */
+body.no-animations *,
+body.no-animations *::before,
+body.no-animations *::after {
+    animation: none !important;
+    transition: none !important;
+}
