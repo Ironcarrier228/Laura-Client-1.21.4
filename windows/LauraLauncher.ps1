@@ -75,6 +75,53 @@ function Expand-Into([string]$zip, [string]$dest) {
 }
 
 # ----------------------------------------------------------------------------
+# Дедупликация classpath (страховка от «duplicate ASM classes»)
+# ----------------------------------------------------------------------------
+# Профиль Fabric-лоадера штатно перекрывает org.ow2.asm:9.6 из профиля
+# Minecraft 1.21.4 на org.ow2.asm:9.9, поэтому в свежем инстансе конфликта нет.
+# Но если профиль остался от старого лаунчера или собран вручную, в classpath
+# могут попасть две версии одного артефакта — и игра падает ещё до окна:
+#   IllegalStateException: duplicate ASM classes found on classpath
+# Ниже оставляем по одной (самой свежей) версии каждого артефакта.
+function Get-LibKey([string]$libPath) {
+    # 'C:\...\org\ow2\asm\asm\9.6\asm-9.6.jar' -> 'C:/.../org/ow2/asm/asm'
+    $seg = ([string]$libPath).Replace('\', '/').Split('/')
+    if ($seg.Count -lt 3) { return $null }
+    return ($seg[0..($seg.Count - 3)] -join '/')
+}
+
+function Get-LibVersion([string]$libPath) {
+    $seg = ([string]$libPath).Replace('\', '/').Split('/')
+    if ($seg.Count -lt 2) { return '' }
+    return $seg[$seg.Count - 2]
+}
+
+function Compare-Version([string]$left, [string]$right) {
+    # 1 если left > right, -1 если left < right, 0 если равны (как compareVersions в JS-лаунчере)
+    $a = @([regex]::Matches(([string]$left), '[0-9A-Za-z]+') | ForEach-Object { $_.Value })
+    $b = @([regex]::Matches(([string]$right), '[0-9A-Za-z]+') | ForEach-Object { $_.Value })
+    $n = [Math]::Max($a.Count, $b.Count)
+    for ($i = 0; $i -lt $n; $i++) {
+        $x = $null; $y = $null
+        if ($i -lt $a.Count) { $x = $a[$i] }
+        if ($i -lt $b.Count) { $y = $b[$i] }
+        if ($null -eq $x) { return -1 }
+        if ($null -eq $y) { return 1 }
+        if ($x -eq $y) { continue }
+        $nx = 0; $ny = 0
+        if ([int]::TryParse([string]$x, [ref]$nx) -and [int]::TryParse([string]$y, [ref]$ny)) {
+            if ($nx -lt $ny) { return -1 }
+            if ($nx -gt $ny) { return 1 }
+        } else {
+            $c = [string]::CompareOrdinal([string]$x, [string]$y)
+            if ($c -lt 0) { return -1 }
+            if ($c -gt 0) { return 1 }
+        }
+    }
+    return 0
+}
+
+# ----------------------------------------------------------------------------
 # 0. Инстанс
 # ----------------------------------------------------------------------------
 $Instance    = Join-Path $InstanceRoot 'instance'
@@ -362,6 +409,29 @@ foreach ($lib in $profile.libraries) {
     if (($libDone % 10) -eq 0) { Write-Ok "библиотеки: $libDone / $libCount" }
 }
 Write-Ok "библиотеки: $libDone / $libCount"
+
+# Дедупликация classpath: оставляем по одной (самой свежей) версии артефакта.
+# Порядок сохраняется; артефакты без распознанного ключа (нетиповой путь) не трогаем.
+$classpathMap = @{}
+$dedupOrder = New-Object System.Collections.Generic.List[string]
+$droppedDupes = 0
+foreach ($libFile in $libraryFiles) {
+    $libKey = Get-LibKey $libFile
+    if (-not $libKey) { $dedupOrder.Add($libFile); continue }
+    $libVer = Get-LibVersion $libFile
+    if ($classpathMap.ContainsKey($libKey)) {
+        $prev = $classpathMap[$libKey]
+        if ((Compare-Version $libVer $prev.version) -le 0) { $droppedDupes++; continue }
+        [void]$dedupOrder.Remove($prev.dest)  # новая версия вытесняет старую
+        $droppedDupes++
+    }
+    $classpathMap[$libKey] = @{ version = $libVer; dest = $libFile }
+    $dedupOrder.Add($libFile)
+}
+if ($droppedDupes -gt 0) {
+    Write-Warn "Убрал дубли библиотек из classpath: $droppedDupes"
+}
+$libraryFiles = $dedupOrder
 
 # ----------------------------------------------------------------------------
 # 6. Собираем аргументы запуска
