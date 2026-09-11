@@ -153,10 +153,12 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
     private final AmbientParticles ambientParticles = new AmbientParticles();
     private final ChromaticVignette chromaticVignette = new ChromaticVignette();
     private final SpotifyHUD spotifyHUD = new SpotifyHUD();
+    private final DiscordRPC discordRPC = new DiscordRPC();
     private Interface bd;
 
     public static void a(JSONObject obj, Module module) {
-        module.a(obj.a("activated", false));
+        // Stop the old RPC session before loading a different saved Client ID.
+        if (module instanceof DiscordRPC && module.m()) module.a(false);
         module.a(obj.a("bind", -1));
         if (obj.m("settings")) {
             JSONObject settingsObj = obj.j("settings");
@@ -166,6 +168,8 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
                 }
             }
         }
+        // Enable only after settings are restored (not with the default Client ID).
+        module.a(obj.a("activated", false));
     }
 
     @Override
@@ -182,7 +186,7 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
                 this.p, this.w, this.bd, this.at, this.au, this.aB, this.aO, this.e, this.aN, this.aP, this.aU, this.aV,
                 this.aW, this.aX, this.aZ, this.ba, this.bb, this.Y, this.damageIndicator, this.killText, this.electricArcs,
                 this.trails, this.pulseRings, this.freeLook, this.volumetricFog, this.ambientParticles,
-                this.chromaticVignette, this.spotifyHUD);
+                this.chromaticVignette, this.spotifyHUD, this.discordRPC);
         super.setup();
     }
 

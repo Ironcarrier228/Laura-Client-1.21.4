@@ -1,6 +1,5 @@
 package laura.discord;
 
-
 import laura.config.BaseProcessor;
 import laura.core.Laura;
 
@@ -9,24 +8,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/** Module-controlled RPC. All connection and activity commands run off the render thread. */
 public class DiscordProcessor extends BaseProcessor {
-    // ВАЖНО: Замени на свой Discord Application Client ID
-    // Создай приложение на https://discord.com/developers/applications
-    // Включи Rich Presence, загрузи ассеты если нужно, скопируй Application ID
-    // Если оставишь дефолтный ID - убедись что такое приложение существует, иначе будет ошибка Invalid client ID
-    // Можно передать свой ID через JVM аргумент -Dlaura.discord.clientId=YOUR_ID или env LAURA_DISCORD_CLIENT_ID
-    private static final long DEFAULT_CLIENT_ID = 1400721859848298640L; // Пример - замени на свой
-    private static final long CLIENT_ID = getClientId();
+    private static final long DEFAULT_CLIENT_ID = 1400721859848298640L;
+    private volatile DiscordIPC ipc;
+    private ScheduledExecutorService scheduler;
 
-    private DiscordIPC b;
-    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "Laura-DiscordRPC-Retry");
-        t.setDaemon(true);
-        return t;
-    });
-    private volatile boolean closed = false;
-
-    private static long getClientId() {
+    public static long getClientId() {
         try {
             String prop = System.getProperty("laura.discord.clientId");
             if (prop != null && !prop.isBlank()) {
@@ -52,103 +40,58 @@ public class DiscordProcessor extends BaseProcessor {
 
     @Override
     public void setup() {
-        this.closed = false;
-        System.out.println("[DiscordRPC] Initializing with clientId=" + CLIENT_ID);
-        System.out.println("[DiscordRPC] If you see 'Invalid client ID' error, create your own Discord app and set ID via -Dlaura.discord.clientId=YOUR_ID");
-        try {
-            DiscordIPCConfig config = DiscordIPCConfig.a()
-                    .clientId(CLIENT_ID)
-                    .reconnect(true)
-                    .maxReconnectAttempts(0) // 0 = бесконечно
-                    .b(1000L) // reconnectBaseDelayMs
-                    .c(30000L) // reconnectMaxDelayMs
-                    .d(10000L) // commandTimeoutMs
-                    .build();
-            this.b = DiscordIPC.a(config);
-            connectAsync();
-        } catch (Exception e) {
-            System.err.println("[DiscordRPC] Failed to init IPC: " + e.getMessage());
-            e.printStackTrace();
-            scheduleRetry();
-        }
+        // DiscordRPC is started only by its module, not unconditionally at startup.
     }
 
-    private void connectAsync() {
-        if (this.closed) return;
-        if (this.b == null) {
-            System.err.println("[DiscordRPC] IPC is null in connectAsync");
-            return;
+    public synchronized void start(long clientId) {
+        if (clientId <= 0) {
+            throw new IllegalArgumentException("Client ID must be positive");
         }
-        try {
-            System.out.println("[DiscordRPC] Attempting to connect to Discord...");
-            this.b.b().whenComplete(this::a);
-        } catch (Exception e) {
-            System.err.println("[DiscordRPC] connectAsync failed: " + e.getMessage());
-            e.printStackTrace();
-            scheduleRetry();
-        }
-    }
-
-    private void scheduleRetry() {
-        if (this.closed) return;
-        System.out.println("[DiscordRPC] Scheduling retry in 15 seconds... (is Discord running?)");
-        try {
-            scheduler.schedule(this::connectAsync, 15, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            System.err.println("[DiscordRPC] Failed to schedule retry: " + e.getMessage());
-        }
+        unSetup();
+        DiscordIPC session = DiscordIPC.a(DiscordIPCConfig.a()
+                .clientId(clientId).reconnect(false).d(10000L).build());
+        ipc = session;
+        long startedAt = System.currentTimeMillis() / 1000L;
+        scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "Laura-DiscordRPC");
+            thread.setDaemon(true);
+            return thread;
+        });
+        // Also retries if Discord was closed or was started after Minecraft.
+        scheduler.scheduleWithFixedDelay(() -> update(session, startedAt), 0, 15, TimeUnit.SECONDS);
     }
 
     @Override
-    public void unSetup() {
-        this.closed = true;
-        try {
+    public synchronized void unSetup() {
+        DiscordIPC previous = ipc;
+        ipc = null;
+        if (scheduler != null) {
             scheduler.shutdownNow();
-        } catch (Exception ignored) {
+            scheduler = null;
         }
-        try {
-            if (this.b != null) {
-                this.b.close();
-                System.out.println("[DiscordRPC] Closed");
-            }
-        } catch (Exception e) {
-            System.err.println("[DiscordRPC] Error during close: " + e.getMessage());
+        if (previous != null) {
+            previous.close();
         }
-        this.b = null;
     }
 
     public DiscordIPC a() {
-        return this.b;
+        return ipc;
     }
 
-    public void a(Void result, Throwable ex) {
-        if (ex != null) {
-            System.err.println("[DiscordRPC] Connection failed: " + ex.getMessage());
-            Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-            cause.printStackTrace();
-            if (cause instanceof NoDiscordClientException) {
-                System.err.println("[DiscordRPC] Discord client not found. Make sure Discord is running and RPC is enabled.");
-            }
-            if (cause.getMessage() != null && cause.getMessage().contains("Invalid client ID")) {
-                System.err.println("[DiscordRPC] Invalid client ID! Create your own Discord application at https://discord.com/developers/applications and set client ID via -Dlaura.discord.clientId=YOUR_ID");
-            }
-            scheduleRetry();
-            return;
-        }
-        System.out.println("[DiscordRPC] Connected successfully!");
+    private void update(DiscordIPC session, long startedAt) {
+        if (ipc != session) return;
         try {
-            updateActivity();
-        } catch (Exception e) {
-            System.err.println("[DiscordRPC] Failed to set activity after connect: " + e.getMessage());
-            e.printStackTrace();
+            if (!session.d()) session.a();
+            if (ipc != session) return;
+            updateActivity(session, startedAt);
+        } catch (Exception ex) {
+            if (ipc == session) {
+                System.err.println("[DiscordRPC] Cannot update activity; retrying in 15 seconds: " + ex.getMessage());
+            }
         }
     }
 
-    private void updateActivity() throws IOException {
-        if (this.b == null) {
-            System.err.println("[DiscordRPC] IPC is null, cannot set activity");
-            return;
-        }
+    private void updateActivity(DiscordIPC session, long startedAt) throws IOException {
         String username = "Unknown";
         try {
             if (Laura.getInstance() != null && Laura.getInstance().g() != null) {
@@ -176,28 +119,10 @@ public class DiscordProcessor extends BaseProcessor {
                 .b("username: " + username) // details
                 .state("build: " + buildType) // state
                 .largeImage("https://i.imgur.com/E6dkFRc.jpeg", "Laura Client | https://github.com/Ironcarrier228/Laura-Client")
-                .startAt(System.currentTimeMillis() / 1000L)
+                .startAt(startedAt)
                 .c("Новости", "https://github.com/Ironcarrier228/Laura-Client")
                 .build();
 
-        System.out.println("[DiscordRPC] Setting activity: " + activity.j());
-        this.b.a(activity);
-        System.out.println("[DiscordRPC] Activity set successfully");
-    }
-
-    public void update() {
-        if (this.b != null) {
-            try {
-                if (this.b.d()) {
-                    updateActivity();
-                } else {
-                    System.out.println("[DiscordRPC] Not connected, trying to reconnect...");
-                    connectAsync();
-                }
-            } catch (Exception e) {
-                System.err.println("[DiscordRPC] update() failed: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
+        session.a(activity);
     }
 }
