@@ -114,6 +114,14 @@ class Config {
         out.game.javaPath = typeof out.game.javaPath === 'string'
             ? out.game.javaPath
             : '';
+        // Значения из старых config.json могли сохраниться строкой. Строгая
+        // нормализация важна для fullscreen: строка "false" в JavaScript
+        // truthy и незаметно добавляла --fullscreen при запуске.
+        out.game.fullscreen = out.game.fullscreen === true || out.game.fullscreen === 'true';
+        const width = Number.parseInt(out.game.width, 10);
+        const height = Number.parseInt(out.game.height, 10);
+        out.game.width = Number.isFinite(width) ? Math.min(Math.max(width, 640), 3840) : DEFAULT_CONFIG.game.width;
+        out.game.height = Number.isFinite(height) ? Math.min(Math.max(height, 480), 2160) : DEFAULT_CONFIG.game.height;
         if (!['stay', 'minimize', 'close'].includes(out.game.afterLaunch)) {
             out.game.afterLaunch = DEFAULT_CONFIG.game.afterLaunch;
         }

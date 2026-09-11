@@ -12,6 +12,7 @@ import laura.core.Processor;
 import laura.event.KeyEvent;
 import laura.lib.json.JSONArray;
 import laura.lib.json.JSONObject;
+import laura.lib.javassist.TokenId;
 import laura.module.combat.*;
 import laura.module.misc.*;
 import laura.module.movement.*;
@@ -926,9 +927,11 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
     public void a(KeyEvent event) {
         int action = event.getAction();
         int key = event.getKey();
+        boolean customBindingHandled = false;
         for (Module module : e()) {
             if (module.p() != -1 && module.p() == key && action == 1) {
                 module.a();
+                customBindingHandled = true;
             }
             if (module.m()) {
                 for (Setting<?> setting : module.e()) {
@@ -936,13 +939,21 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
                         if (bind.e().get().booleanValue() && bind.c().intValue() != -1 && bind.c().intValue() == key) {
                             if (action == 1) {
                                 bind.k().execute();
+                                customBindingHandled = true;
                             } else if (action == 0 && bind.m() == 0) {
                                 bind.l().execute();
+                                customBindingHandled = true;
                             }
                         }
                     }
                 }
             }
+        }
+        // F11 is handled by vanilla Keyboard.onKey as well. If a Laura
+        // module/setting was rebound to F11, let the custom action run but
+        // consume the event so GLFW cannot switch the monitor mode behind it.
+        if (customBindingHandled && key == TokenId.a_) {
+            event.a(true);
         }
     }
 
