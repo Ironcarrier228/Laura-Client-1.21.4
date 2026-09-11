@@ -18,6 +18,18 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Логика подготовки инстанса живёт в лаунчере: слияние профилей Mojang и
+      # Fabric и дедупликация classpath (регресс на «duplicate ASM classes»).
+      # Зависимости npm для этого не нужны — тесты на встроенном node:test.
+      - name: Test launcher profile merge
+        working-directory: launcher
+        run: node --test test/profile-merge.test.js
+
       - name: Build with Gradle
         shell: bash
         run: |

@@ -161,6 +161,15 @@ Fabric API, и **сам запускает игру** без лаунчера Mo
 3. Убедитесь, что установлен Fabric Loader и **Fabric API**.
 4. Запустите игру.
 
+> **`IllegalStateException: duplicate ASM classes found on classpath` сразу после
+> запуска** (в стеке `LoaderUtil.verifyClasspath`, `Knot.<clinit>`) — это баг
+> лаунчера, а не клиента: он собрал classpath из двух профилей и положил в него
+> и `org.ow2.asm:asm:9.6` из профиля Minecraft 1.21.4, и `asm:9.9` из профиля
+> Fabric-лоадера, а лоадер не терпит двух версий ASM. Свой лаунчер
+> ([`launcher/`](launcher/README.md)) перекрывает профиль Mojang профилем
+> лоадера; в стороннем лаунчере — обнови его либо удали папку
+> `libraries/org/ow2/asm/9.6` в инстансе.
+
 ---
 
 ## 🔨 Сборка из исходников
