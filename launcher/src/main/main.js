@@ -5,25 +5,94 @@ const fs = require('fs');
 const Config = require('./config');
 const MinecraftLauncher = require('./launcher');
 
-const config = new Config();
+// Конфиг создаём лениво, только после app.ready: app.getPath('userData')
+// до этого момента может бросить исключение и уронить весь лаунчер.
+let config = null;
+function getConfig() {
+    if (!config) config = new Config();
+    return config;
+}
 
 let mainWindow = null;
 
+// Один экземпляр: повторный запуск просто фокусирует открытое окно.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+    app.quit();
+} else {
+    app.on('second-instance', () => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+}
+
+// Непадающий лаунчер: вместо молчаливого закрытия показываем ошибку.
+process.on('uncaughtException', error => {
+    console.error('Uncaught exception:', error);
+    try {
+        dialog.showErrorBox(
+            'Laura Launcher — ошибка',
+            `Что-то пошло не так:\n${error && error.message ? error.message : error}`
+        );
+    } catch (_) { /* best effort */ }
+});
+
 function createWindow() {
+    const preloadPath = path.join(__dirname, 'preload.js');
+    if (!fs.existsSync(preloadPath)) {
+        dialog.showErrorBox(
+            'Laura Launcher — ошибка',
+            `Не найден preload-скрипт:\n${preloadPath}\nПереустановите лаунчер.`
+        );
+        app.quit();
+        return;
+    }
+
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 800,
         minWidth: 1024,
         minHeight: 700,
         frame: false,
-        transparent: true,
+        // Прозрачные окна нестабильны на Linux без композитора (чёрный экран),
+        // поэтому там используем обычное непрозрачное окно.
+        transparent: process.platform !== 'linux',
         backgroundColor: '#0a0a14',
         titleBarStyle: 'hidden',
+        show: false,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload.js')
+            preload: preloadPath
         }
+    });
+
+    mainWindow.once('ready-to-show', () => {
+        mainWindow?.show();
+    });
+
+    // Если интерфейс не загрузился — показываем причину, а не чёрное окно.
+    mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+        console.error('did-fail-load:', errorCode, errorDescription);
+        try {
+            if (mainWindow && !mainWindow.isVisible()) mainWindow.show();
+            dialog.showErrorBox(
+                'Laura Launcher — ошибка',
+                `Не удалось загрузить интерфейс (${errorCode}):\n${errorDescription}`
+            );
+        } catch (_) { /* best effort */ }
+    });
+
+    mainWindow.webContents.on('render-process-gone', (_event, details) => {
+        console.error('render-process-gone:', details);
+        try {
+            dialog.showErrorBox(
+                'Laura Launcher — ошибка',
+                `Интерфейс аварийно завершился (${details?.reason || 'unknown'}).\nПерезапустите лаунчер.`
+            );
+        } catch (_) { /* best effort */ }
     });
 
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
@@ -40,7 +109,12 @@ function createWindow() {
         if (isDiscord || isGithubProfile) shell.openExternal(url);
         return { action: 'deny' };
     });
-    mainWindow.webContents.on('will-navigate', event => event.preventDefault());
+    // Блокируем только внешние навигации. Без проверки file:// этот хендлер
+    // может отменить и первичную загрузку интерфейса — будет чёрный экран.
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+        if (typeof url === 'string' && url.startsWith('file:')) return;
+        event.preventDefault();
+    });
 
     if (process.argv.includes('--dev')) {
         mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -60,10 +134,10 @@ ipcMain.on('window:maximize', () => {
 ipcMain.on('window:close', () => mainWindow?.close());
 
 // IPC: конфиг
-ipcMain.handle('config:get', () => config.get());
+ipcMain.handle('config:get', () => getConfig().get());
 ipcMain.handle('config:set', (_, data) => {
-    config.set(data);
-    return config.get();
+    getConfig().set(data);
+    return getConfig().get();
 });
 
 // IPC: диалоги
@@ -84,7 +158,7 @@ ipcMain.handle('dialog:selectFile', async () => {
 
 // IPC: запуск Minecraft
 ipcMain.handle('minecraft:launch', async (_, options) => {
-    const launcher = new MinecraftLauncher(config.get());
+    const launcher = new MinecraftLauncher(getConfig());
     try {
         const result = await launcher.launch(options);
         return { success: true, ...result };
@@ -98,12 +172,44 @@ ipcMain.handle('minecraft:versions', async (_, type) => {
     return MinecraftLauncher.fetchVersions(type);
 });
 
-// IPC: открыть папку
+// IPC: открыть произвольную папку (fire-and-forget, для совместимости)
 ipcMain.on('shell:openFolder', (_, folder) => {
-    if (fs.existsSync(folder)) shell.openPath(folder);
+    try {
+        const target = folder && String(folder).trim()
+            ? path.resolve(String(folder).trim())
+            : MinecraftLauncher.resolveInstancePath(getConfig().get());
+        fs.mkdirSync(target, { recursive: true });
+        shell.openPath(target);
+    } catch (err) {
+        console.error('shell:openFolder failed:', err);
+    }
 });
 
-app.whenReady().then(createWindow);
+// IPC: кнопка «Папка игры» — открывает инстанс (создаёт, если его ещё нет)
+// и возвращает результат, чтобы интерфейс мог показать тост.
+ipcMain.handle('shell:openGameFolder', async () => {
+    try {
+        const instancePath = MinecraftLauncher.resolveInstancePath(getConfig().get());
+        fs.mkdirSync(instancePath, { recursive: true });
+        const error = await shell.openPath(instancePath);
+        if (error) return { success: false, path: instancePath, error };
+        return { success: true, path: instancePath };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
+app.whenReady()
+    .then(() => {
+        getConfig(); // инициализация конфига только после ready
+        createWindow();
+    })
+    .catch(error => {
+        console.error('app.whenReady failed:', error);
+        try {
+            dialog.showErrorBox('Laura Launcher — ошибка', `Не удалось запустить:\n${error.message}`);
+        } catch (_) { /* best effort */ }
+    });
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();

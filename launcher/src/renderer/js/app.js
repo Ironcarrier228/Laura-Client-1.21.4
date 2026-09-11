@@ -34,7 +34,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Play
-    $('#btn-play').onclick = onPlayClick;
+    bindClick('btn-play', onPlayClick);
+
+    // Папка игры — на главной и в настройках
+    bindClick('btn-open-game-folder', onOpenGameFolder);
+    bindClick('btn-open-instance', onOpenGameFolder);
 
     // Слайдеры RAM
     bindSlider('ram-min', 'ram-min-value', v => `${v} МБ`);
@@ -91,12 +95,14 @@ async function onPlayClick() {
     const status = $('#play-status');
     const indicator = $('.status-indicator');
     const versionEl = $('#play-version');
-    indicator.classList.add('busy');
-    indicator.classList.remove('error');
-    status.textContent = 'Подготовка...';
-    versionEl.textContent = `${state.config.game.version} · ${state.config.game.loader}`;
-
     try {
+        indicator?.classList.add('busy');
+        indicator?.classList.remove('error');
+        if (status) status.textContent = 'Подготовка...';
+        if (versionEl && state.config) {
+            versionEl.textContent = `${state.config.game.version} · ${state.config.game.loader}`;
+        }
+
         // Сохраняем актуальные значения перед запуском
         await saveConfig();
 
@@ -106,18 +112,18 @@ async function onPlayClick() {
         });
 
         if (result.success) {
-            status.textContent = 'Игра запущена';
+            if (status) status.textContent = 'Игра запущена';
             toast(result.message || 'Laura Client запущен!', 'success');
-            indicator.classList.remove('busy');
+            indicator?.classList.remove('busy');
             // Обновляем статистику
             setTimeout(refreshProfile, 200);
         } else {
             throw new Error(result.error);
         }
     } catch (err) {
-        indicator.classList.remove('busy');
-        indicator.classList.add('error');
-        status.textContent = 'Ошибка запуска';
+        indicator?.classList.remove('busy');
+        indicator?.classList.add('error');
+        if (status) status.textContent = 'Ошибка запуска';
         toast('Не удалось запустить: ' + err.message, 'error');
     }
 }

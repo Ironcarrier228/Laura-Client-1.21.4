@@ -23,6 +23,8 @@ Electron-лаунчер для **Laura Client** на Minecraft 1.21.4. Лаун�
 launcher/
 ├── package.json
 ├── README.md
+├── Start-Laura-Launcher.bat  запуск в один клик (Windows)
+├── start-laura.sh            запуск в один клик (Linux/macOS)
 └── src/
     ├── main/
     │   ├── main.js          Electron entry, window + IPC
@@ -43,7 +45,13 @@ launcher/
 ./gradlew build
 ```
 
-Затем запустите лаунчер:
+Затем запустите лаунчер — проще всего в один клик:
+
+- **Windows:** двойной клик по `launcher/Start-Laura-Launcher.bat`
+  (сам поставит зависимости при первом запуске);
+- **Linux/macOS:** `./launcher/start-laura.sh`.
+
+Вручную:
 
 ```bash
 cd launcher
@@ -56,6 +64,24 @@ npm start
 ```bash
 npm run dev
 ```
+
+## Если лаунчер не запускается
+
+| Симптом | Что делать |
+|---|---|
+| Окно не открывается вообще | Запустите через `Start-Laura-Launcher.bat` (Windows) или `start-laura.sh` — они покажут причину в консоли. Проверьте, что установлен Node.js 18+. |
+| Чёрное/белое окно | Откройте DevTools (`npm run dev`) и посмотрите ошибку в консоли. Чаще всего — битый `config.json`: удалите его из папки Electron `userData` (`%APPDATA%/laura-launcher` на Windows). |
+| `Java 21 не найдена` при нажатии ИГРАТЬ | Установите JDK 21 (Temurin/Microsoft) или укажите путь к `java` в **Настройки → Java и инстанс**. Java 8/17 не подойдут — лаунчер скажет об этом явно. |
+| `JAR Laura Client не найден` | Соберите проект (`gradlew build`) или укажите путь к JAR в **Настройки → Java и инстанс → JAR Laura Client**. |
+| Игра мгновенно закрывается | Смотрите `laura-launcher.log` в папке инстанса (открывается кнопкой **Папка игры**). |
+| `Microsoft-авторизация пока не подключена` | Выберите **Offline** в настройках аккаунта. |
+
+## Папка игры
+
+Кнопка **Папка игры** (на главном экране под кнопкой ИГРАТЬ и кнопка
+**Папка** рядом с полем инстанса в настройках) открывает папку инстанса
+в проводнике — ту же, куда лаунчер ставит моды, библиотеки и
+`laura-launcher.log`. Если папки ещё нет, она создаётся автоматически.
 
 Для сборки установщика `build/libs/laura-client-*.jar` должен существовать до
 запуска `npm run build`. Electron Builder положит его в ресурсы приложения:

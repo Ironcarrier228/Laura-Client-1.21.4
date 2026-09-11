@@ -183,6 +183,56 @@
     filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.5));
 }
 
+/* ---------- Кнопка «Папка игры» ---------- */
+.play-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 20px;
+    animation: slide-up 0.6s ease-out 0.5s both;
+}
+
+.btn-folder {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 26px;
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-strong);
+    border-radius: 40px;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.btn-folder svg {
+    width: 18px;
+    height: 18px;
+    color: var(--accent);
+    transition: color var(--transition);
+}
+
+.btn-folder:hover {
+    color: var(--text);
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--accent-glow);
+}
+
+.btn-folder:hover svg {
+    color: var(--text);
+}
+
+.btn-folder:active {
+    transform: translateY(0);
+}
+
 /* ---------- News ---------- */
 .news-section {
     margin-top: 24px;

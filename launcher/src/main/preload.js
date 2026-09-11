@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('sakura', {
     },
     // Утилиты
     shell: {
-        openFolder: (folder) => ipcRenderer.send('shell:openFolder', folder)
+        openFolder: (folder) => ipcRenderer.send('shell:openFolder', folder),
+        // Кнопка «Папка игры»: открывает инстанс и возвращает результат.
+        openGameFolder: () => ipcRenderer.invoke('shell:openGameFolder')
     }
 });

@@ -1,7 +1,7 @@
 // Модуль работы с конфигом лаунчера
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const { app } = require('electron');
 
 const FABRIC_LOADER = 'fabric';
 
@@ -34,9 +34,25 @@ const DEFAULT_CONFIG = {
 };
 
 class Config {
-    constructor() {
-        this.configPath = path.join(app.getPath('userData'), 'config.json');
+    constructor(customPath) {
+        this.configPath = customPath || Config.resolveConfigPath();
         this.data = this.load();
+    }
+
+    // Путь к config.json. app.getPath('userData') до события ready может
+    // бросить исключение и уронить весь лаунчер — поэтому здесь fallback
+    // на домашнюю папку пользователя.
+    static resolveConfigPath() {
+        try {
+            const { app } = require('electron');
+            if (app && typeof app.getPath === 'function') {
+                return path.join(app.getPath('userData'), 'config.json');
+            }
+        } catch (_) {
+            // Electron ещё не готов или недоступен — используем fallback ниже.
+        }
+        const home = (os.homedir && os.homedir()) || process.cwd();
+        return path.join(home, '.laura-launcher', 'config.json');
     }
 
     load() {
@@ -88,6 +104,12 @@ class Config {
         );
         out.game.clientJarPath = typeof out.game.clientJarPath === 'string'
             ? out.game.clientJarPath
+            : '';
+        out.game.instancePath = typeof out.game.instancePath === 'string'
+            ? out.game.instancePath
+            : '';
+        out.game.javaPath = typeof out.game.javaPath === 'string'
+            ? out.game.javaPath
             : '';
         out.profile.nickname = String(out.profile.nickname || DEFAULT_CONFIG.profile.nickname)
             .replace(/[\r\n]/g, '')

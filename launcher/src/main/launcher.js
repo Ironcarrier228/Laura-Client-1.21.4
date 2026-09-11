@@ -8,6 +8,7 @@ const os = require('os');
 const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
+const zlib = require('zlib');
 
 const FABRIC_META_URL = 'https://meta.fabricmc.net/v2/versions/loader';
 const MINECRAFT_MANIFEST_URL = 'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json';
@@ -23,7 +24,30 @@ const PLATFORM_OS = {
 
 class MinecraftLauncher {
     constructor(config) {
-        this.config = config;
+        // Принимаем как Config-инстанс (с get/set), так и plain-объект данных.
+        // Раньше сюда всегда передавали plain-объект, а в launch() вызывались
+        // несуществующие this.config.data / this.config.save() — запуск игры
+        // всегда заканчивался ошибкой даже при успешном старте процесса.
+        if (config && typeof config.get === 'function' && typeof config.set === 'function') {
+            this.configStore = config;
+            this.config = config.get();
+        } else {
+            this.configStore = null;
+            this.config = config;
+        }
+    }
+
+    // Единый резолв пути инстанса: используется и запуском игры,
+    // и кнопкой «Папка игры», чтобы открывалась та же папка.
+    static resolveInstancePath(configData) {
+        const baseDirectory = process.env.LOCALAPPDATA || process.env.APPDATA || os.homedir() || process.cwd();
+        const configured = configData && configData.game && configData.game.instancePath;
+        const trimmed = typeof configured === 'string' ? configured.trim() : '';
+        return path.resolve(trimmed || path.join(baseDirectory, 'Laura Client', 'instance'));
+    }
+
+    getInstancePath() {
+        return MinecraftLauncher.resolveInstancePath(this.config);
     }
 
     // Получить список релизов Minecraft. Оставлено для совместимости IPC API.
@@ -110,19 +134,38 @@ class MinecraftLauncher {
         }
     }
 
+    // Проверяет, что Java существует и её версия подходит для 1.21.4 (21+).
+    // Возвращает { ok, version } — вместо молчаливого запуска не той Java,
+    // после которого игра мгновенно закрывается без понятной ошибки.
+    static checkJavaVersion(javaPath) {
+        try {
+            const result = spawnSync(javaPath, ['-version'], {
+                encoding: 'utf8',
+                timeout: 10_000,
+                windowsHide: true
+            });
+            if (result.error || result.status !== 0) return { ok: false, version: null };
+            const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+            const match = output.match(/version\s+"(\d+)(?:\.(\d+))?/);
+            if (!match) return { ok: false, version: null };
+            // Старая нумерация 1.8 -> 8, новая 21.x -> 21.
+            const major = match[1] === '1' && match[2] ? parseInt(match[2], 10) : parseInt(match[1], 10);
+            return { ok: Number.isFinite(major) && major >= 21, version: major };
+        } catch (_) {
+            return { ok: false, version: null };
+        }
+    }
+
     findJava() {
         const configured = this.config.game.javaPath;
+        const exe = process.platform === 'win32' ? 'java.exe' : 'java';
         const candidates = [];
         if (configured) {
             candidates.push(configured);
-            candidates.push(path.join(configured, 'bin', process.platform === 'win32' ? 'java.exe' : 'java'));
+            candidates.push(path.join(configured, 'bin', exe));
         }
         if (process.env.JAVA_HOME) {
-            candidates.push(path.join(
-                process.env.JAVA_HOME,
-                'bin',
-                process.platform === 'win32' ? 'java.exe' : 'java'
-            ));
+            candidates.push(path.join(process.env.JAVA_HOME, 'bin', exe));
         }
         candidates.push(
             'C:\\Program Files\\Java\\jdk-21\\bin\\java.exe',
@@ -133,13 +176,34 @@ class MinecraftLauncher {
             '/opt/homebrew/opt/openjdk@21/bin/java'
         );
 
+        let wrongVersion = null;
         for (const candidate of candidates) {
-            if (candidate && fs.existsSync(candidate) && !fs.statSync(candidate).isDirectory()) {
-                return candidate;
-            }
+            if (!candidate) continue;
+            let isFile = false;
+            try {
+                isFile = fs.existsSync(candidate) && !fs.statSync(candidate).isDirectory();
+            } catch (_) { /* ignore */ }
+            if (!isFile) continue;
+            const check = MinecraftLauncher.checkJavaVersion(candidate);
+            if (check.ok) return candidate;
+            if (check.version !== null && wrongVersion === null) wrongVersion = check.version;
         }
-        // PATH — spawn покажет понятную ошибку, если Java действительно отсутствует.
-        return process.platform === 'win32' ? 'java.exe' : 'java';
+
+        // PATH — проверяем так же строго, чтобы не запустить Java 8/17.
+        const pathCheck = MinecraftLauncher.checkJavaVersion(exe);
+        if (pathCheck.ok) return exe;
+        if (pathCheck.version !== null && wrongVersion === null) wrongVersion = pathCheck.version;
+
+        if (wrongVersion !== null) {
+            throw new Error(
+                `Найдена Java ${wrongVersion}, а для Minecraft 1.21.4 нужна Java 21+. ` +
+                'Установите JDK 21 (Temurin/Microsoft) или укажите путь к java в настройках лаунчера.'
+            );
+        }
+        throw new Error(
+            'Java 21 не найдена. Установите JDK 21 и перезапустите лаунчер, ' +
+            'или укажите путь к java вручную в настройках.'
+        );
     }
 
     findJarInDirectory(directory) {
@@ -299,27 +363,101 @@ class MinecraftLauncher {
 
         fs.mkdirSync(nativesPath, { recursive: true });
         for (const nativeJar of nativeJars) {
-            const jarCommand = process.platform === 'win32'
-                ? path.join(path.dirname(javaPath), 'jar.exe')
-                : path.join(path.dirname(javaPath), 'jar');
-            const result = spawnSync(jarCommand, ['xf', nativeJar], {
-                cwd: nativesPath,
-                windowsHide: true,
-                stdio: 'ignore'
-            });
-            if (result.error || result.status !== 0) {
-                // В PATH может быть отдельный jar, например при использовании JAVA_HOME неявно.
-                const fallback = spawnSync('jar', ['xf', nativeJar], {
-                    cwd: nativesPath,
-                    windowsHide: true,
-                    stdio: 'ignore'
-                });
-                if (fallback.error || fallback.status !== 0) {
-                    throw new Error('Не удалось распаковать нативные библиотеки Java. Установите JDK 21.');
-                }
+            // Сначала пробуем штатный `jar` из JDK, но если стоит только JRE
+            // (без jar.exe) — распаковываем нативки встроенным unzip на zlib,
+            // чтобы запуск не падал с «Не удалось распаковать».
+            let extracted = false;
+            // Соседний `jar` имеет смысл искать только если java задан полным путём.
+            if (javaPath && javaPath.includes(path.sep)) {
+                try {
+                    const jarCommand = process.platform === 'win32'
+                        ? path.join(path.dirname(javaPath), 'jar.exe')
+                        : path.join(path.dirname(javaPath), 'jar');
+                    if (fs.existsSync(jarCommand)) {
+                        const result = spawnSync(jarCommand, ['xf', nativeJar], {
+                            cwd: nativesPath,
+                            windowsHide: true,
+                            stdio: 'ignore'
+                        });
+                        extracted = !result.error && result.status === 0;
+                    }
+                } catch (_) { /* fallback ниже */ }
+            }
+            if (!extracted) {
+                try {
+                    const fallback = spawnSync('jar', ['xf', nativeJar], {
+                        cwd: nativesPath,
+                        windowsHide: true,
+                        stdio: 'ignore'
+                    });
+                    extracted = !fallback.error && fallback.status === 0;
+                } catch (_) { /* fallback ниже */ }
+            }
+            if (!extracted) {
+                MinecraftLauncher.extractZip(nativeJar, nativesPath);
             }
         }
         return artifacts;
+    }
+
+    // Минимальный unzip без внешних программ: stored + deflate.
+    // Как и ванильный лаунчер, пропускаем META-INF в нативных библиотеках.
+    static extractZip(zipPath, destination) {
+        let buffer;
+        try {
+            buffer = fs.readFileSync(zipPath);
+        } catch (error) {
+            throw new Error(`Не удалось прочитать архив ${path.basename(zipPath)}: ${error.message}`);
+        }
+        if (buffer.length < 22) throw new Error(`Повреждённый архив: ${path.basename(zipPath)}`);
+
+        // Ищем EOCD с конца файла (максимум 64К комментарий).
+        let eocd = -1;
+        const scanStart = Math.max(0, buffer.length - (0xFFFF + 22));
+        for (let i = buffer.length - 22; i >= scanStart; i -= 1) {
+            if (buffer.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+        }
+        if (eocd < 0) throw new Error(`Не удалось распаковать ${path.basename(zipPath)}: нет EOCD.`);
+
+        const entries = buffer.readUInt16LE(eocd + 10);
+        let offset = buffer.readUInt32LE(eocd + 16);
+        fs.mkdirSync(destination, { recursive: true });
+
+        for (let n = 0; n < entries; n += 1) {
+            if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== 0x02014b50) break;
+            const method = buffer.readUInt16LE(offset + 10);
+            const compressedSize = buffer.readUInt32LE(offset + 20);
+            const nameLength = buffer.readUInt16LE(offset + 28);
+            const extraLength = buffer.readUInt16LE(offset + 30);
+            const commentLength = buffer.readUInt16LE(offset + 32);
+            const localOffset = buffer.readUInt32LE(offset + 42);
+            const name = buffer.toString('utf8', offset + 46, offset + 46 + nameLength);
+            offset += 46 + nameLength + extraLength + commentLength;
+
+            if (!name || name.endsWith('/') || name.startsWith('META-INF/')) continue;
+            const normalized = path.normalize(name);
+            if (path.isAbsolute(normalized) || normalized.startsWith(`..${path.sep}`) || normalized === '..') continue;
+            if (localOffset + 30 > buffer.length) continue;
+            const localNameLen = buffer.readUInt16LE(localOffset + 26);
+            const localExtraLen = buffer.readUInt16LE(localOffset + 28);
+            const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+            const dataEnd = dataStart + compressedSize;
+            if (dataEnd > buffer.length) continue;
+
+            let data = buffer.subarray(dataStart, dataEnd);
+            if (method === 8) {
+                try {
+                    data = zlib.inflateRawSync(data);
+                } catch (error) {
+                    throw new Error(`Не удалось распаковать ${name}: ${error.message}`);
+                }
+            } else if (method !== 0) {
+                continue; // неизвестный метод сжатия — пропускаем запись
+            }
+            const outPath = path.join(destination, normalized);
+            fs.mkdirSync(path.dirname(outPath), { recursive: true });
+            fs.writeFileSync(outPath, data);
+        }
     }
 
     async downloadAssets(assetIndex, assetsPath) {
@@ -589,14 +727,15 @@ class MinecraftLauncher {
             throw new Error('Microsoft-авторизация пока не подключена. Выберите Offline в настройках.');
         }
 
-        const baseDirectory = process.env.LOCALAPPDATA || process.env.APPDATA || os.homedir() || process.cwd();
-        const instancePath = path.resolve(gameConfig.instancePath || path.join(baseDirectory, 'Laura Client', 'instance'));
+        // Java проверяем ДО долгих скачиваний, чтобы не качать гигабайты
+        // ради запуска, который всё равно упадёт без JDK 21.
+        const java = this.findJava();
+        const instancePath = MinecraftLauncher.resolveInstancePath(this.config);
         fs.mkdirSync(instancePath, { recursive: true });
 
         const clientJar = this.findClientJar();
         this.installClientJar(instancePath, clientJar);
         const prepared = await this.prepare(instancePath, clientJar);
-        const java = this.findJava();
         const args = this.buildLaunchArgs(prepared.profile, prepared, gameConfig);
         const logPath = path.join(instancePath, 'laura-launcher.log');
         const log = fs.createWriteStream(logPath, { flags: 'a' });
@@ -606,8 +745,15 @@ class MinecraftLauncher {
             stdio: ['ignore', log, log]
         });
 
-        this.config.data.lastPlayed = new Date().toISOString();
-        this.config.save();
+        try {
+            const stamp = new Date().toISOString();
+            if (this.configStore) {
+                this.configStore.set({ lastPlayed: stamp });
+                this.config = this.configStore.get();
+            } else if (this.config && typeof this.config === 'object') {
+                this.config.lastPlayed = stamp;
+            }
+        } catch (_) { /* best effort: отметка времени не должна ронять запуск */ }
 
         return new Promise((resolve, reject) => {
             child.once('error', error => {
