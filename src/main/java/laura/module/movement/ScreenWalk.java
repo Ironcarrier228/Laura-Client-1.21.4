@@ -87,7 +87,9 @@ public class ScreenWalk extends Module {
     public void a(TickEvent event) {
         if (!this.d && mc.currentScreen != null && !(mc.currentScreen instanceof ChatScreen) && !(mc.currentScreen instanceof SignEditScreen) && !(mc.currentScreen instanceof AnvilScreen) && !(mc.currentScreen instanceof CreativeInventoryScreen)) {
             for (KeyBinding keyBinding : new KeyBinding[]{mc.options.forwardKey, mc.options.backKey, mc.options.leftKey, mc.options.rightKey, mc.options.jumpKey}) {
-                keyBinding.setPressed(InputUtil.isKeyPressed(mc.getWindow().getHandle(), keyBinding.getDefaultKey().getCode()));
+                // Use the current user binding, not the original WASD default.
+                // Otherwise Screen Walk silently ignores key remapping.
+                keyBinding.setPressed(InputUtil.isKeyPressed(mc.getWindow().getHandle(), keyBinding.getBoundKey().getCode()));
             }
         }
         if (!MoveUtil.a() && !this.c.isEmpty()) {

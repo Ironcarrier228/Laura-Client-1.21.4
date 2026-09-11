@@ -54,6 +54,50 @@ class MinecraftLauncher {
         return MinecraftLauncher.resolveInstancePath(this.config);
     }
 
+    // Minecraft сохраняет fullscreen в options.txt. Одних --width/--height
+    // недостаточно: если в старом инстансе осталось fullscreen:true, LWJGL
+    // сначала переводит окно в режим монитора и Windows может на мгновение
+    // сменить режим вывода (вплоть до перезапуска Explorer). Перед безопасным
+    // оконным запуском явно сбрасываем этот флаг.
+    static forceWindowedOptions(instancePath) {
+        const optionsPath = path.join(instancePath, 'options.txt');
+        let original = '';
+        try {
+            if (fs.existsSync(optionsPath)) original = fs.readFileSync(optionsPath, 'utf8');
+        } catch (_) {
+            return false;
+        }
+
+        const newline = original.includes('\r\n') ? '\r\n' : '\n';
+        const hasTrailingNewline = /\r?\n$/.test(original);
+        let lines = original === '' ? [] : original.split(/\r?\n/);
+        if (hasTrailingNewline) lines = lines.slice(0, -1);
+
+        let foundFullscreen = false;
+        lines = lines.reduce((result, line) => {
+            if (/^\s*fullscreen\s*:/i.test(line)) {
+                if (!foundFullscreen) {
+                    result.push('fullscreen:false');
+                    foundFullscreen = true;
+                }
+                return result;
+            }
+            result.push(line);
+            return result;
+        }, []);
+        if (!foundFullscreen) lines.push('fullscreen:false');
+
+        const updated = lines.join(newline) + newline;
+        if (updated !== original) {
+            try {
+                fs.writeFileSync(optionsPath, updated, 'utf8');
+            } catch (_) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Сообщение о этапе подготовки в интерфейс (см. onProgress в main.js).
     report(message) {
         try {
@@ -969,18 +1013,19 @@ class MinecraftLauncher {
         appendGameArg('--accessToken', accessToken);
         appendGameArg('--userProperties', '{}');
         appendGameArg('--userType', this.config.profile.authMode === 'offline' ? 'legacy' : 'mojang');
-        // Удаляем параметры разрешения из профиля и задаём их ровно один раз.
-        // Так старый fullscreen/размер из profile.json не успевает временно
-        // переключить рабочий стол перед применением настроек пользователя.
+        // Удаляем параметры окна из профиля и задаём их ровно один раз.
+        // Важно проверять fullscreen строго: старое значение "false" из
+        // config.json не должно трактоваться как true.
         const removeGameArg = (name, hasValue = true) => {
             for (let i = gameArgs.length - 1; i >= 0; i--) {
                 if (gameArgs[i] === name) gameArgs.splice(i, hasValue ? 2 : 1);
             }
         };
+        const fullscreen = gameConfig.fullscreen === true;
         removeGameArg('--fullscreen', false);
         removeGameArg('--width');
         removeGameArg('--height');
-        if (gameConfig.fullscreen) gameArgs.push('--fullscreen');
+        if (fullscreen) gameArgs.push('--fullscreen');
         else gameArgs.push('--width', String(gameConfig.width || 854), '--height', String(gameConfig.height || 480));
 
         return [
@@ -1060,6 +1105,13 @@ class MinecraftLauncher {
         this.installClientJar(instancePath, clientJar);
         this.report('Загрузка файлов Minecraft (первый запуск может занять несколько минут)...');
         const prepared = await this.prepare(instancePath, clientJar);
+        // Не даём сохранённому options.txt вернуть fullscreen, если в
+        // настройках лаунчера выбран оконный режим. Иначе Minecraft может
+        // успеть вызвать glfwSetWindowMonitor до применения аргументов.
+        if (gameConfig.fullscreen !== true
+            && !MinecraftLauncher.forceWindowedOptions(instancePath)) {
+            throw new Error('Не удалось сохранить оконный режим в options.txt. Игра не запущена, чтобы не менять разрешение Windows.');
+        }
         const args = this.buildLaunchArgs(prepared.profile, prepared, gameConfig);
         const logPath = path.join(instancePath, 'laura-launcher.log');
         // Лог перезаписывается при каждом запуске (как Minecraft latest.log).

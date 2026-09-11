@@ -18,6 +18,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const MinecraftLauncher = require('../src/main/launcher');
+const Config = require('../src/main/config');
 
 // --- фрагмент базового профиля Minecraft 1.21.4 (Mojang) ---
 const mojangLibrary = (name, extra = {}) => ({
@@ -185,6 +186,64 @@ test('describeCrash stays silent on unrelated or missing logs', () => {
         fs.writeFileSync(logPath, '[12:00:00] [main/INFO]: Background resource reload\n', 'utf8');
         assert.equal(MinecraftLauncher.describeCrash(logPath), null);
         assert.equal(MinecraftLauncher.describeCrash(path.join(directory, 'nope.log')), null);
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('windowed startup removes persisted fullscreen and profile window flags', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'laura-windowed-'));
+    try {
+        const optionsPath = path.join(directory, 'options.txt');
+        fs.writeFileSync(optionsPath, 'fullscreen:true\r\nfullscreenResolution:1920x1080\r\n', 'utf8');
+        assert.equal(MinecraftLauncher.forceWindowedOptions(directory), true);
+        const options = fs.readFileSync(optionsPath, 'utf8');
+        assert.match(options, /^fullscreen:false\r?\n/m);
+        assert.doesNotMatch(options, /^fullscreen:true/m);
+
+        const launcher = new MinecraftLauncher({
+            profile: { nickname: 'Player', authMode: 'offline' },
+            game: {
+                ramMin: 2048,
+                ramMax: 4096,
+                fullscreen: false,
+                width: 1280,
+                height: 720
+            }
+        });
+        const args = launcher.buildLaunchArgs(
+            {
+                id: 'fabric-loader-test',
+                mainClass: 'example.Main',
+                assetIndex: { id: 'test' },
+                arguments: { game: ['--fullscreen', '--width', '800', '--height', '600'] }
+            },
+            {
+                classpath: ['/tmp/library.jar'],
+                instancePath: directory,
+                assetsPath: path.join(directory, 'assets')
+            },
+            launcher.config.game
+        );
+        assert.equal(args.includes('--fullscreen'), false);
+        assert.deepEqual(
+            args.slice(args.indexOf('--width'), args.indexOf('--width') + 4),
+            ['--width', '1280', '--height', '720']
+        );
+    } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('config treats legacy string false as windowed mode', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'laura-config-'));
+    try {
+        const configPath = path.join(directory, 'config.json');
+        fs.writeFileSync(configPath, JSON.stringify({ game: { fullscreen: 'false', width: '5000', height: '100' } }), 'utf8');
+        const config = new Config(configPath).get();
+        assert.equal(config.game.fullscreen, false);
+        assert.equal(config.game.width, 3840);
+        assert.equal(config.game.height, 480);
     } finally {
         fs.rmSync(directory, { recursive: true, force: true });
     }

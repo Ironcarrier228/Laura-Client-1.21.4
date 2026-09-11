@@ -28,6 +28,10 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $GameVersion   = '1.21.4'
 $DefaultLoader = '0.18.4'
+# Always launch in a window. This prevents Minecraft/LWJGL from changing the
+# desktop display mode and restarting Explorer on Windows.
+$WindowedWidth  = 854
+$WindowedHeight = 480
 
 function Write-Step([string]$msg) { Write-Host "" ; Write-Host "[Laura] $msg" -ForegroundColor Cyan }
 function Write-Ok([string]$msg)   { Write-Host "    $msg" -ForegroundColor Green }
@@ -41,6 +45,42 @@ function Get-Json([string]$url) {
 
 function Has-Prop($obj, [string]$name) {
     return (($obj.PSObject.Properties | Where-Object { $_.Name -eq $name } | Select-Object -First 1) -ne $null)
+}
+
+function Force-WindowedOptions([string]$optionsPath) {
+    # fullscreen is persisted by Minecraft. Remove stale fullscreen:true
+    # before Java starts, otherwise GLFW can change the Windows display mode.
+    $original = ''
+    if (Test-Path $optionsPath) {
+        $original = [System.IO.File]::ReadAllText($optionsPath)
+    }
+    $newline = if ($original.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $hasTrailingNewline = $original -match "`r?`n$"
+    if ([string]::IsNullOrEmpty($original)) {
+        $lines = @()
+    } else {
+        $lines = @($original -split "`r?`n")
+        if ($hasTrailingNewline -and $lines.Count -gt 0) {
+            $lines = @($lines | Select-Object -First ($lines.Count - 1))
+        }
+    }
+
+    $result = New-Object 'System.Collections.Generic.List[string]'
+    $found = $false
+    foreach ($line in $lines) {
+        if ([string]$line -match '^\s*fullscreen\s*:') {
+            if (-not $found) {
+                [void]$result.Add('fullscreen:false')
+                $found = $true
+            }
+            continue
+        }
+        [void]$result.Add([string]$line)
+    }
+    if (-not $found) { [void]$result.Add('fullscreen:false') }
+
+    $updated = ($result -join $newline) + $newline
+    [System.IO.File]::WriteAllText($optionsPath, $updated, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 function Save-Url([string]$url, [string]$dest) {
@@ -145,6 +185,10 @@ if ($Reset) {
 foreach ($d in @($Instance, $ModsDir, $LibsDir, $AssetsDir, $VersionsDir, $ScriptsDir, $NativesDir)) {
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
 }
+
+# Force windowed mode before any possible Minecraft start. This also repairs
+# an old options.txt left by a previous fullscreen launch.
+Force-WindowedOptions (Join-Path $Instance 'options.txt')
 
 # ----------------------------------------------------------------------------
 # 1. Java 21
@@ -483,6 +527,21 @@ if ($gameArgs.Count -eq 0) {
         '--clientId', '0', '--versionType', 'release', '--userType', 'mojang'
     )
 }
+
+# Strip all profile window flags. A stale --fullscreen or duplicate size
+# can otherwise override the safe options.txt value on startup.
+$windowedGameArgs = New-Object 'System.Collections.Generic.List[object]'
+for ($i = 0; $i -lt $gameArgs.Count; $i++) {
+    $arg = [string]$gameArgs[$i]
+    if ($arg -eq '--fullscreen') { continue }
+    if ($arg -eq '--width' -or $arg -eq '--height') {
+        if (($i + 1) -lt $gameArgs.Count) { $i++ }
+        continue
+    }
+    [void]$windowedGameArgs.Add($gameArgs[$i])
+}
+$gameArgs = @($windowedGameArgs.ToArray())
+$gameArgs += @('--width', [string]$WindowedWidth, '--height', [string]$WindowedHeight)
 
 # класспуть: библиотеки + jar игры
 $libraryFiles.Add($clientJarPath)
