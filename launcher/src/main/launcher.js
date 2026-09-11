@@ -404,16 +404,169 @@ class MinecraftLauncher {
         return normalized;
     }
 
+    // 'net.fabricmc:sponge-mixin:0.17.0+mixin.0.8.7' -> { group, artifact, version, classifier }
+    static parseLibraryName(name) {
+        const parts = String(name || '').split(':');
+        if (parts.length < 3) return null;
+        const [group, artifact, version, classifier] = parts;
+        if (!group || !artifact || !version) return null;
+        return { group, artifact, version, classifier: classifier || null };
+    }
+
+    /**
+     * Ключ артефакта БЕЗ версии: group:artifact[:classifier].
+     * Позволяет различать «тот же артефакт в другой версии» (конфликт) и
+     * «то же объявление с другими rules» (обычный дубль в профиле Mojang).
+     * Если координат нет — выводим ключ из пути артефакта, который у Mojang
+     * всегда вида org/ow2/asm/asm/9.6/asm-9.6.jar.
+     */
+    static libraryKey(library) {
+        const parsed = MinecraftLauncher.parseLibraryName(library && library.name);
+        if (parsed) {
+            return `${parsed.group}:${parsed.artifact}${parsed.classifier ? `:${parsed.classifier}` : ''}`;
+        }
+        const segments = String(library?.downloads?.artifact?.path || '')
+            .replace(/\\/g, '/')
+            .split('/')
+            .filter(Boolean);
+        if (segments.length >= 3) {
+            const file = segments[segments.length - 1];
+            const version = segments[segments.length - 2];
+            const artifact = segments[segments.length - 3];
+            const group = segments.slice(0, -3).join('.');
+            // Ключ угадываем только для основного jar (<artifact>-<version>.jar);
+            // для классификаторов (natives-linux и т.п.) не угадываем — иначе
+            // можно по ошибке выбросить нативы.
+            if (group && artifact && file === `${artifact}-${version}.jar`) return `${group}:${artifact}`;
+        }
+        return null;
+    }
+
+    static libraryVersion(library) {
+        const parsed = MinecraftLauncher.parseLibraryName(library && library.name);
+        if (parsed) return parsed.version;
+        const segments = String(library?.downloads?.artifact?.path || '')
+            .replace(/\\/g, '/')
+            .split('/')
+            .filter(Boolean);
+        return segments.length >= 2 ? segments[segments.length - 2] : '';
+    }
+
+    // Сравнение maven-версий по числам: 9.6 < 9.9, 1.21.4 > 1.20.6.
+    // Нечисловые хвосты (+build.8, -GA, +mixin.0.8.7) сравниваются как строки —
+    // для дедупликации библиотек такой точности достаточно.
+    static compareVersions(left, right) {
+        const a = String(left || '').split(/[^0-9A-Za-z]+/).filter(Boolean);
+        const b = String(right || '').split(/[^0-9A-Za-z]+/).filter(Boolean);
+        const size = Math.max(a.length, b.length);
+        for (let i = 0; i < size; i += 1) {
+            const x = a[i];
+            const y = b[i];
+            if (x === y) continue;
+            if (x === undefined) return -1;
+            if (y === undefined) return 1;
+            const nx = Number(x);
+            const ny = Number(y);
+            if (Number.isFinite(nx) && Number.isFinite(ny) && nx !== ny) return nx < ny ? -1 : 1;
+            if (String(x) < String(y)) return -1;
+            if (String(x) > String(y)) return 1;
+        }
+        return 0;
+    }
+
+    /**
+     * Сливает библиотеки базового профиля Minecraft и профиля Fabric-лоадера.
+     *
+     * Профиль лоадера перекрывает базовый по group:artifact[:classifier] — ровно
+     * как официальный лаунчер при наследовании версии. Это важно: Fabric-лоадер
+     * сам выкладывает ASM/Mixin в свою версию, а профиль Mojang для 1.21.4
+     * содержит org.ow2.asm:asm:9.6. Дедуп «по полному имени» оставляет в
+     * classpath обе версии (9.6 из Mojang и 9.9 из профиля лоадера), и игра
+     * падает ещё до появления окна:
+     *   IllegalStateException: duplicate ASM classes found on classpath
+     *       at net.fabricmc.loader.impl.util.LoaderUtil.verifyClasspath
+     *       at net.fabricmc.loader.impl.launch.knot.Knot.<clinit>
+     */
+    static mergeLibraries(baseLibraries, loaderLibraries) {
+        const loader = [];
+        const loaderArtifacts = new Map();
+        for (const library of loaderLibraries || []) {
+            if (!library) continue;
+            const key = MinecraftLauncher.libraryKey(library);
+            const full = library.name || JSON.stringify(library);
+            // Внутри профиля лоадера тоже могут быть дубли той же позиции —
+            // оставляем первую (она и так единственная в нормальных профилях).
+            if (key && loaderArtifacts.has(key)) continue;
+            if (loader.some(item => (item.name || JSON.stringify(item)) === full)) continue;
+            if (key) loaderArtifacts.set(key, library);
+            loader.push(library);
+        }
+
+        const base = [];
+        const seen = new Set();
+        for (const library of baseLibraries || []) {
+            if (!library) continue;
+            const full = library.name || JSON.stringify(library);
+            if (seen.has(full)) continue;
+            const key = MinecraftLauncher.libraryKey(library);
+            // Эту позицию уже закрыла версия от лоадера — старую не тащим.
+            if (key && loaderArtifacts.has(key)) continue;
+            seen.add(full);
+            base.push(library);
+        }
+
+        return [...base, ...loader];
+    }
+
+    /**
+     * Оставляет в classpath по одной версии каждого артефакта (самую новую) и
+     * убирает повторные файлы. Это страховка на случай кривого или уже
+     * сохранённого профиля, где версии всё-таки перемешались: порядок classpath
+     * при этом сохраняется.
+     */
+    static dedupeClasspath(candidates) {
+        const chosen = [];
+        const files = new Set();
+        const byKey = new Map();
+
+        for (const candidate of candidates || []) {
+            if (!candidate || !candidate.file || files.has(candidate.file)) continue;
+            const key = candidate.key;
+            if (!key) {
+                files.add(candidate.file);
+                chosen.push(candidate);
+                continue;
+            }
+            const current = byKey.get(key);
+            if (!current) {
+                byKey.set(key, candidate);
+                files.add(candidate.file);
+                chosen.push(candidate);
+                continue;
+            }
+            if (MinecraftLauncher.compareVersions(candidate.version, current.version) <= 0) continue;
+            const index = chosen.indexOf(current);
+            if (index >= 0) chosen.splice(index, 1, candidate);
+            else chosen.push(candidate);
+            byKey.set(key, candidate);
+            files.add(candidate.file);
+        }
+
+        return chosen.map(item => item.file);
+    }
+
     async downloadLibraries(libraries, librariesPath, nativesPath, javaPath) {
-        const artifacts = [];
+        const candidates = [];
         const seen = new Set();
         const nativeJars = [];
 
         for (const library of libraries || []) {
             if (!library || !MinecraftLauncher.isLibraryAllowed(library)) continue;
-            const key = library.name || JSON.stringify(library);
-            if (seen.has(key)) continue;
-            seen.add(key);
+            // Полная координата (с версией) — убирает только дословные повторы
+            // объявления из профиля; конфликт версий решает dedupeClasspath.
+            const fullName = library.name || JSON.stringify(library);
+            if (seen.has(fullName)) continue;
+            seen.add(fullName);
 
             const downloads = library.downloads || {};
             const artifact = downloads.artifact || {};
@@ -425,7 +578,11 @@ class MinecraftLauncher {
                 const safePath = MinecraftLauncher.safeRelativePath(artifactPath);
                 const destination = path.join(librariesPath, safePath);
                 await MinecraftLauncher.downloadFile(artifactUrl, destination);
-                artifacts.push(destination);
+                candidates.push({
+                    file: destination,
+                    key: MinecraftLauncher.libraryKey(library),
+                    version: MinecraftLauncher.libraryVersion(library)
+                });
             }
 
             const nativeKey = PLATFORM_OS[process.platform];
@@ -444,6 +601,20 @@ class MinecraftLauncher {
             const nativeJar = path.join(librariesPath, safeNativePath);
             await MinecraftLauncher.downloadFile(nativeUrl, nativeJar);
             nativeJars.push(nativeJar);
+        }
+
+        // Страховка от «duplicate ASM classes»: если по каким-то причинам
+        // (сохранённый профиль, другой лоадер) в список попали две версии
+        // одного артефакта, в classpath уходит только новая.
+        const artifacts = MinecraftLauncher.dedupeClasspath(candidates);
+        if (artifacts.length !== candidates.length) {
+            const kept = new Set(artifacts);
+            const dropped = [...new Set(candidates
+                .filter(candidate => !kept.has(candidate.file))
+                .map(candidate => path.basename(candidate.file)))];
+            if (dropped.length) {
+                this.report(`Убрал дубли библиотек из classpath: ${dropped.join(', ')}`);
+            }
         }
 
         fs.mkdirSync(nativesPath, { recursive: true });
@@ -545,6 +716,59 @@ class MinecraftLauncher {
         }
     }
 
+    /**
+     * Читает хвост laura-launcher.log и превращает типичные краши запуска в
+     * одну понятную строку в статусе. Полный стек всегда остаётся в логе —
+     * здесь только то, что пользователь реально может сделать сам.
+     */
+    static describeCrash(logPath, maxBytes = 128 * 1024) {
+        let text = '';
+        try {
+            const size = fs.statSync(logPath).size;
+            const start = Math.max(0, size - maxBytes);
+            const buffer = Buffer.alloc(size - start);
+            const fd = fs.openSync(logPath, 'r');
+            try {
+                fs.readSync(fd, buffer, 0, buffer.length, start);
+            } finally {
+                fs.closeSync(fd);
+            }
+            text = buffer.toString('utf8');
+        } catch (_) {
+            return null;
+        }
+        if (!text) return null;
+
+        const patterns = [
+            [/duplicate ASM classes found on classpath/i,
+                'В classpath попали две версии ASM (org.ow2.asm). Fabric-лоадер сам решает, какая версия ASM нужна, '
+                + 'поэтому библиотека той же группы из профиля Minecraft игнорируется. Обнови лаунчер и запусти ещё раз; '
+                + 'если не помогло — удали папку libraries/org/ow2/asm в папке инстанса.'],
+            [/duplicate \w+ classes found on classpath/i,
+                'В classpath две версии одной библиотеки. Удали папку libraries в инстансе и запусти заново — '
+                + 'лаунчер соберёт класспуть заново.'],
+            [/which is missing|Incompatible mod set/i,
+                'Какому-то моду не хватает зависимости (обычно Fabric API). '
+                + 'Лаунчер скачивает fabric-api в папку mods — проверь, что она там есть.'],
+            [/UnsupportedClassVersionError/i,
+                'Мод собран под более новую Java. Нужна JDK 21 — укажи путь к java в настройках лаунчера.'],
+            [/java\.lang\.NoClassDefFoundError: (?:org\/lwjgl|org\/joml|io\/netty|com\/mojang|org\/apache|net\/fabricmc)/i,
+                'Не докачались библиотеки Minecraft или Fabric. Удали папку libraries в инстансе и запусти заново.'],
+            [/java\.lang\.UnsatisfiedLinkError/i,
+                'Не найдены нативные библиотеки (LWJGL). Удали папки libraries и natives-<os> в инстансе, '
+                + 'затем запусти лаунчер снова.'],
+            [/java\.lang\.OutOfMemoryError/i,
+                'Не хватило памяти. Увеличь RAM в настройках лаунчера (раздел «Java и инстанс»).'],
+            [/MixinApplyError|Mixin apply failed|target class was not found/i,
+                'Mixin не применился — обычно это мод не под вашу версию Minecraft/Fabric. '
+                + 'Убери лишние моды из папки mods и попробуй снова.']
+        ];
+        for (const [pattern, hint] of patterns) {
+            if (pattern.test(text)) return hint;
+        }
+        return null;
+    }
+
     async downloadAssets(assetIndex, assetsPath) {
         if (!assetIndex || !assetIndex.id || !assetIndex.url) return;
         const indexPath = path.join(assetsPath, 'indexes', `${assetIndex.id}.json`);
@@ -600,15 +824,12 @@ class MinecraftLauncher {
             );
         }
 
-        const libraries = [];
-        const libraryKeys = new Set();
-        for (const library of [...(baseProfile.libraries || []), ...(fabricProfile.libraries || [])]) {
-            const key = library.name || JSON.stringify(library);
-            if (!libraryKeys.has(key)) {
-                libraryKeys.add(key);
-                libraries.push(library);
-            }
-        }
+        // Дедуп не «по полному имени», а с перекрытием по group:artifact:
+        // профиль лоадера важнее базового профиля Minecraft (см. mergeLibraries).
+        const libraries = MinecraftLauncher.mergeLibraries(
+            baseProfile.libraries || [],
+            fabricProfile.libraries || []
+        );
 
         const fabricMainClass = typeof fabricProfile.mainClass === 'string'
             ? fabricProfile.mainClass
@@ -875,15 +1096,17 @@ class MinecraftLauncher {
                 reject(new Error(`Не удалось запустить Java: ${error.message}`));
             });
             child.once('spawn', () => {
-                child.once('close', code => {
+                child.once('close', (code, signal) => {
                     finishLog();
                     // Окно Java закрылось не через меню «Выход» — вместо
                     // молчания показываем причину: код и путь к логу, где
                     // есть полный стек (наиболее частые причины — недостающий
                     // Fabric API или несовместимый мод).
                     if (code !== null && code !== 0) {
+                        const hint = MinecraftLauncher.describeCrash(logPath);
                         this.report(
-                            `Игра завершилась с ошибкой (код ${code}). ` +
+                            `Игра завершилась с ошибкой (код ${code}${signal ? `, сигнал ${signal}` : ''}). ` +
+                            (hint ? `${hint} ` : '') +
                             `Полный лог: ${logPath}`
                         );
                     }

@@ -36,7 +36,7 @@ launcher/
 ├── README.md
 ├── Start-Laura-Launcher.bat  запуск в один клик (Windows)
 ├── start-laura.sh            запуск в один клик (Linux/macOS)
-└── src/
+├── src/
     ├── main/
     │   ├── main.js          Electron entry, window + IPC
     │   ├── preload.js       безопасный contextBridge API
@@ -47,6 +47,8 @@ launcher/
         ├── index.html       интерфейс
         ├── styles/           CSS
         └── js/app.js         логика UI и IPC-вызовы
+└── test/
+    └── profile-merge.test.js слияние профилей и дедуп classpath (`npm test`)
 ```
 
 ## Запуск из исходников
@@ -86,7 +88,19 @@ npm run dev
 | `Java 21 не найдена` при нажатии ИГРАТЬ | Установите JDK 21 (Temurin/Microsoft) или укажите путь к `java` в **Настройки → Java и инстанс**. Java 8/17 не подойдут — лаунчер скажет об этом явно. |
 | `JAR Laura Client не найден` | Соберите проект (`gradlew build`) или укажите путь к JAR в **Настройки → Java и инстанс → JAR Laura Client**. |
 | Игра мгновенно закрывается | В статусе под кнопкой ИГРАТЬ лаунчер показывает код ошибки и путь к `laura-launcher.log` в папке инстанса (открывается кнопкой **Папка игры**) — полный стек там же. Частая причина — несовместимый мод в `mods`. |
+| `duplicate ASM classes found on classpath` (в стеке `LoaderUtil.verifyClasspath`) | Слияние профилей раньше дедуплицировало библиотеки по полной координате, поэтому в classpath попадали и `org.ow2.asm:asm:9.6` из профиля Minecraft 1.21.4, и `org.ow2.asm:asm:9.9` из профиля Fabric-лоадера — и игра умирала ещё до появления окна. Теперь профиль лоадера перекрывает базовый по `group:artifact` (`mergeLibraries`), а `dedupeClasspath` дополнительно оставляет одну версию каждого артефакта. Обнови лаунчер и запусти игру заново; если обновиться нельзя — удали папку `%LOCALAPPDATA%\Laura Client\instance\libraries\org\ow2\asm` и нажми ИГРАТЬ ещё раз (лаунчер докачает нужное). Лаунчер сам разбирает такие стектрейсы и пишет подсказку в статус под кнопкой. |
 | `Microsoft-авторизация пока не подключена` | Выберите **Offline** в настройках аккаунта. |
+
+## Тесты
+
+```bash
+npm test
+```
+
+Прогоняет `node --test test/profile-merge.test.js` — проверку слияния профилей
+и дедупликации classpath (регресс на `duplicate ASM classes found on classpath`).
+Внешние зависимости не нужны, достаточно Node.js 18+: тесты можно запускать
+и до `npm install`.
 
 ## Папка игры
 

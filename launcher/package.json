@@ -7,7 +7,8 @@
     "start": "electron .",
     "build": "electron-builder",
     "dev": "electron . --dev",
-    "setup": "npm install"
+    "setup": "npm install",
+    "test": "node --test test/profile-merge.test.js"
   },
   "author": "Ironcarrier and Fen",
   "license": "MIT",
