@@ -206,8 +206,9 @@ public class GUIPanel {
             float center = y2 + 8.0f;
             float activation = module.f().c();
             float fade = (float) Math.pow(MathUtil.a(MathUtil.b((bottom - y2) / 16.0f, 0.0f, 1.0f)), 1.0d);
-            // staggered row reveal
-            float rowIn = MathUtil.b((open - (rowIndex * 0.03f)) / 0.45f, 0.0f, 1.0f);
+            // Bound the stagger so every row is fully visible when open reaches 1.
+            float rowDelay = Math.min(rowIndex * 0.03f, 0.45f);
+            float rowIn = MathUtil.b((open - rowDelay) / 0.45f, 0.0f, 1.0f);
             fade *= EasingList.s.ease(rowIn);
             boolean hover = ((float) mouseY) >= y && ((float) mouseY) <= bottom && MathUtil.a(mouseX, mouseY, this.a.x + 6.0f, y2, this.a.z - 12.0f, 16.0f);
             if (hover) {
