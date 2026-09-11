@@ -12,9 +12,13 @@ const zlib = require('zlib');
 
 const FABRIC_META_URL = 'https://meta.fabricmc.net/v2/versions/loader';
 const MINECRAFT_MANIFEST_URL = 'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json';
+const MODRINTH_API_URL = 'https://api.modrinth.com/v2/project/fabric-api/version';
 const DEFAULT_FABRIC_LOADER = '0.18.4';
 const DEFAULT_VERSION = '1.21.4';
+// Версия Fabric API, под которую собран Laura Client (см. gradle.properties).
+const PREFERRED_FABRIC_API_VERSION = '0.119.4';
 const CLIENT_JAR_PATTERN = /^laura-client(?:-[^/]*)?\.jar$/i;
+const FABRIC_API_JAR_PATTERN = /^fabric-api-[^/\\]+\.jar$/i;
 
 const PLATFORM_OS = {
     win32: 'windows',
@@ -282,6 +286,62 @@ class MinecraftLauncher {
 
         const destination = path.join(modsPath, path.basename(clientJar));
         fs.copyFileSync(clientJar, destination);
+        return destination;
+    }
+
+    /**
+     * Гарантирует, что в папке mods лежит Fabric API.
+     *
+     * Это критично: Laura Client в fabric.mod.json объявляет зависимость
+     * "fabric-api": "*", и без него Fabric-лоадер роняет игру сразу после
+     * старта (окно Java открывается и тут же закрывается, «майны нет»).
+     * PowerShell-лаунчер (windows/LauraLauncher.ps1) ставит его с Modrinth —
+     * Electron-лаунчер должен делать то же самое.
+     *
+     * Идемпотентно: если fabric-api-*.jar уже в mods (поставлен вручную или
+     * прошлым запуском), ничего не скачиваем.
+     */
+    async ensureFabricApi(instancePath, version) {
+        const modsPath = path.join(instancePath, 'mods');
+        fs.mkdirSync(modsPath, { recursive: true });
+
+        let existing = [];
+        try {
+            existing = fs.readdirSync(modsPath, { withFileTypes: true })
+                .filter(entry => entry.isFile())
+                .map(entry => entry.name);
+        } catch (_) { /* папка пустая или недоступна — скачаем ниже */ }
+        if (existing.some(name => FABRIC_API_JAR_PATTERN.test(name))) {
+            this.report('Fabric API уже на месте');
+            return null;
+        }
+
+        this.report('Скачиваем Fabric API (нужен клиенту)...');
+        let file = null;
+        try {
+            const query = `?game_versions=${encodeURIComponent(JSON.stringify([version]))}` +
+                `&loaders=${encodeURIComponent(JSON.stringify(['fabric']))}`;
+            const versions = await MinecraftLauncher.getJson(MODRINTH_API_URL + query);
+            if (!Array.isArray(versions) || versions.length === 0) {
+                throw new Error('пустой ответ Modrinth');
+            }
+            // В приоритете версия, под которую собран клиент, иначе — первый
+            // совместимый с этой версией Minecraft релиз.
+            const chosen = versions.find(item =>
+                String(item.version_number || '').startsWith(PREFERRED_FABRIC_API_VERSION)) || versions[0];
+            file = (chosen.files || []).find(item => FABRIC_API_JAR_PATTERN.test(item.filename));
+            if (!file) throw new Error('в ответе Modrinth нет файла fabric-api-*.jar');
+        } catch (error) {
+            throw new Error(
+                `Не удалось скачать Fabric API: ${error.message}. ` +
+                `Скачайте fabric-api-${PREFERRED_FABRIC_API_VERSION}+${version}.jar с ` +
+                `https://modrinth.com/mod/fabric-api и положите в: ${modsPath}`
+            );
+        }
+
+        const destination = path.join(modsPath, path.basename(file.filename));
+        await MinecraftLauncher.downloadFile(file.url, destination);
+        this.report(`Fabric API установлен: ${path.basename(file.filename)}`);
         return destination;
     }
 
@@ -567,13 +627,15 @@ class MinecraftLauncher {
                 mainClass: fabricMainClass || baseMainClass || 'net.fabricmc.loader.impl.launch.knot.KnotClient',
                 assetIndex: fabricProfile.assetIndex || baseProfile.assetIndex,
                 libraries,
+                // Складываем аргументы как официальный лаунчер: base + fabric.
+                // Прежнее поведение (fabric «заменяет» base, когда у него
+                // непустой массив) молча теряло базовые jvm-аргументы
+                // (-Djava.library.path, -Dorg.lwjgl.system.SharedLibraryExtractPath
+                // и т.п.), если профиль лоадера их содержал.
+                // Свой -cp/-Xms/-Xmx из профилей buildLaunchArgs и так отфильтровывает.
                 arguments: {
-                    jvm: fabricProfile.arguments?.jvm?.length
-                        ? fabricProfile.arguments.jvm
-                        : (baseProfile.arguments?.jvm || []),
-                    game: fabricProfile.arguments?.game?.length
-                        ? fabricProfile.arguments.game
-                        : (baseProfile.arguments?.game || [])
+                    jvm: [...(baseProfile.arguments?.jvm || []), ...(fabricProfile.arguments?.jvm || [])],
+                    game: [...(baseProfile.arguments?.game || []), ...(fabricProfile.arguments?.game || [])]
                 },
                 minecraftArguments: fabricProfile.minecraftArguments || baseProfile.minecraftArguments
             },
@@ -721,6 +783,11 @@ class MinecraftLauncher {
         fs.mkdirSync(librariesPath, { recursive: true });
         fs.mkdirSync(assetsPath, { recursive: true });
 
+        // Fabric API до тяжёлых скачиваний: без него игра всё равно упадёт,
+        // поэтому при недоступности Modrinth лучше упасть сразу с понятной
+        // ошибкой, чем после десятка минут загрузки.
+        await this.ensureFabricApi(instancePath, version);
+
         const gameDownload = profiles.base.downloads?.client || profile.downloads?.client;
         if (!gameDownload?.url) throw new Error(`В профиле Minecraft ${version} отсутствует client JAR.`);
         await MinecraftLauncher.downloadFile(gameDownload.url, clientGameJar);
@@ -796,12 +863,31 @@ class MinecraftLauncher {
         } catch (_) { /* best effort: отметка времени не должна ронять запуск */ }
 
         return new Promise((resolve, reject) => {
+            // Лог закрываем один раз: процесс мог завершиться и с ошибкой,
+            // и нормально — 'close' срабатывает в обоих случаях.
+            const finishLog = () => {
+                if (!log.destroyed) {
+                    try { log.end(); } catch (_) { /* best effort */ }
+                }
+            };
             child.once('error', error => {
-                log.end();
+                finishLog();
                 reject(new Error(`Не удалось запустить Java: ${error.message}`));
             });
             child.once('spawn', () => {
-                child.once('close', () => log.end());
+                child.once('close', code => {
+                    finishLog();
+                    // Окно Java закрылось не через меню «Выход» — вместо
+                    // молчания показываем причину: код и путь к логу, где
+                    // есть полный стек (наиболее частые причины — недостающий
+                    // Fabric API или несовместимый мод).
+                    if (code !== null && code !== 0) {
+                        this.report(
+                            `Игра завершилась с ошибкой (код ${code}). ` +
+                            `Полный лог: ${logPath}`
+                        );
+                    }
+                });
                 resolve({
                     mode: 'process',
                     pid: child.pid,
