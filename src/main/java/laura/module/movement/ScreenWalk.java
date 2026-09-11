@@ -14,7 +14,6 @@ import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.gui.screen.ingame.SignEditScreen;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.BlockItem;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
@@ -86,11 +85,9 @@ public class ScreenWalk extends Module {
     @EventTarget
     public void a(TickEvent event) {
         if (!this.d && mc.currentScreen != null && !(mc.currentScreen instanceof ChatScreen) && !(mc.currentScreen instanceof SignEditScreen) && !(mc.currentScreen instanceof AnvilScreen) && !(mc.currentScreen instanceof CreativeInventoryScreen)) {
-            for (KeyBinding keyBinding : new KeyBinding[]{mc.options.forwardKey, mc.options.backKey, mc.options.leftKey, mc.options.rightKey, mc.options.jumpKey}) {
-                // Use the current user binding, not the original WASD default.
-                // Otherwise Screen Walk silently ignores key remapping.
-                keyBinding.setPressed(InputUtil.isKeyPressed(mc.getWindow().getHandle(), keyBinding.getBoundKey().getCode()));
-            }
+            // Minecraft updates this from the actual bound keys. Calling the
+            // public helper keeps Screen Walk compatible with user remapping.
+            KeyBinding.updatePressedStates();
         }
         if (!MoveUtil.a() && !this.c.isEmpty()) {
             ClientConnectionAccessor connection = (ClientConnectionAccessor) mc.player.networkHandler.getConnection();
