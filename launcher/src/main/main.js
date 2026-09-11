@@ -2,8 +2,10 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const Config = require('./config');
 const MinecraftLauncher = require('./launcher');
+const TeamInfo = require('./team');
 
 // Конфиг создаём лениво, только после app.ready: app.getPath('userData')
 // до этого момента может бросить исключение и уронить весь лаунчер.
@@ -156,9 +158,29 @@ ipcMain.handle('dialog:selectFile', async () => {
     return result.canceled ? null : result.filePaths[0];
 });
 
+// IPC: выбор папки Java — путь к java.exe/java строит main-процесс,
+// он знает платформу и умеет разбирать и корень JDK, и саму папку bin.
+ipcMain.handle('dialog:selectJava', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Выберите папку JDK 21 (или её папку bin)',
+        properties: ['openDirectory']
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    return MinecraftLauncher.resolveJavaExecutable(result.filePaths[0]);
+});
+
 // IPC: запуск Minecraft
 ipcMain.handle('minecraft:launch', async (_, options) => {
     const launcher = new MinecraftLauncher(getConfig());
+    // Прогресс подготовки (Java, JAR, загрузка файлов) — в интерфейс,
+    // чтобы после нажатия ИГРАТЬ было видно, что происходит.
+    launcher.onProgress = message => {
+        try {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('minecraft:progress', String(message));
+            }
+        } catch (_) { /* прогресс не должен ломать запуск */ }
+    };
     try {
         const result = await launcher.launch(options);
         return { success: true, ...result };
@@ -196,6 +218,33 @@ ipcMain.handle('shell:openGameFolder', async () => {
         return { success: true, path: instancePath };
     } catch (err) {
         return { success: false, error: err.message };
+    }
+});
+
+// IPC: информация о папке инстанса — путь и существует ли она.
+// Нужна, чтобы интерфейс показывал, где именно лаунчер держит игру.
+ipcMain.handle('instance:info', () => {
+    try {
+        const instancePath = MinecraftLauncher.resolveInstancePath(getConfig().get());
+        return { path: instancePath, exists: fs.existsSync(instancePath) };
+    } catch (err) {
+        return { path: '', exists: false, error: err.message };
+    }
+});
+
+// IPC: данные команды для «О нас» — аватарки с GitHub (с кэшем на диске).
+ipcMain.handle('about:team', async () => {
+    try {
+        let cacheDirectory;
+        try {
+            cacheDirectory = path.join(app.getPath('userData'), 'team-cache');
+        } catch (_) {
+            cacheDirectory = path.join(os.homedir(), '.laura-launcher', 'team-cache');
+        }
+        return await new TeamInfo(cacheDirectory).getTeam();
+    } catch (err) {
+        console.error('about:team failed:', err);
+        return [];
     }
 });
 

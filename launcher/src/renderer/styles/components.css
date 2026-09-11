@@ -233,6 +233,41 @@
     transform: translateY(0);
 }
 
+/* ---------- Путь к папке игры на главном экране ---------- */
+.instance-hint {
+    display: block;
+    max-width: 640px;
+    margin: 10px auto 0;
+    padding: 4px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+    cursor: pointer;
+    opacity: 0.75;
+    word-break: break-all;
+    transition: all var(--transition);
+    animation: slide-up 0.6s ease-out 0.6s both;
+}
+
+.instance-hint::before {
+    content: '📁 ';
+    opacity: 0.8;
+}
+
+.instance-hint:hover {
+    color: var(--accent);
+    opacity: 1;
+    background: rgba(255, 45, 138, 0.08);
+}
+
+.instance-hint:empty {
+    display: none;
+}
+
 /* ---------- News ---------- */
 .news-section {
     margin-top: 24px;
@@ -855,6 +890,32 @@
     filter: blur(12px);
     opacity: 0.5;
     z-index: -1;
+}
+
+/* Аватарка с GitHub (подтягивается main-процессом, кэш на диске).
+   Пока фото не загрузилось — остаётся цветная градиентная заглушка. */
+.member-avatar-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity var(--transition);
+    z-index: 1;
+}
+
+.member-avatar.has-photo {
+    border: 2px solid var(--border-strong);
+}
+
+.member-avatar.has-photo::after {
+    opacity: 0.35;
+}
+
+.member-avatar.has-photo .member-avatar-img {
+    opacity: 1;
 }
 
 .member-name {

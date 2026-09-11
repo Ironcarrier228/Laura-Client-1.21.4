@@ -50,6 +50,13 @@ class MinecraftLauncher {
         return MinecraftLauncher.resolveInstancePath(this.config);
     }
 
+    // Сообщение о этапе подготовки в интерфейс (см. onProgress в main.js).
+    report(message) {
+        try {
+            if (typeof this.onProgress === 'function') this.onProgress(message);
+        } catch (_) { /* прогресс не должен ломать запуск */ }
+    }
+
     // Получить список релизов Minecraft. Оставлено для совместимости IPC API.
     static async fetchVersions(type = 'release') {
         const manifest = await MinecraftLauncher.getJson(MINECRAFT_MANIFEST_URL);
@@ -301,6 +308,24 @@ class MinecraftLauncher {
             }
         }
         return allowed;
+    }
+
+    // Из выбранной в диалоге папки строит путь к исполняемому файлу java.
+    // Принимает и корень JDK, и саму папку bin. Возвращает самый вероятный
+    // путь, даже если файл пока не найден (пользователь увидит его в поле).
+    static resolveJavaExecutable(directory) {
+        if (!directory) return null;
+        const exe = process.platform === 'win32' ? 'java.exe' : 'java';
+        const base = path.normalize(String(directory).trim());
+        const direct = path.join(base, exe);                 // выбрали саму bin
+        const inBin = path.join(base, 'bin', exe);           // выбрали корень JDK
+        const inJreBin = path.join(base, 'jre', 'bin', exe); // JDK с вложенной jre
+        for (const candidate of [direct, inBin, inJreBin]) {
+            try {
+                if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+            } catch (_) { /* ignore */ }
+        }
+        return inBin;
     }
 
     static coordinateToPath(coordinate) {
@@ -729,16 +754,31 @@ class MinecraftLauncher {
 
         // Java проверяем ДО долгих скачиваний, чтобы не качать гигабайты
         // ради запуска, который всё равно упадёт без JDK 21.
+        this.report('Проверка Java 21...');
         const java = this.findJava();
         const instancePath = MinecraftLauncher.resolveInstancePath(this.config);
         fs.mkdirSync(instancePath, { recursive: true });
 
+        this.report('Поиск JAR Laura Client...');
         const clientJar = this.findClientJar();
         this.installClientJar(instancePath, clientJar);
+        this.report('Загрузка файлов Minecraft (первый запуск может занять несколько минут)...');
         const prepared = await this.prepare(instancePath, clientJar);
         const args = this.buildLaunchArgs(prepared.profile, prepared, gameConfig);
         const logPath = path.join(instancePath, 'laura-launcher.log');
         const log = fs.createWriteStream(logPath, { flags: 'a' });
+        // spawn() принимает только уже открытые потоки: если передать
+        // WriteStream до события open — будет ERR_INVALID_ARG_VALUE и запуск
+        // молча упадёт на последнем шаге. Ждём открытия лог-файла.
+        await new Promise((resolve, reject) => {
+            if (log.fd !== null && log.fd !== undefined && log.fd >= 0) {
+                resolve();
+                return;
+            }
+            log.once('open', resolve);
+            log.once('error', () => reject(new Error(`Не удалось открыть лог-файл ${logPath}`)));
+        });
+        this.report('Запуск игры...');
         const child = spawn(java, args, {
             cwd: instancePath,
             windowsHide: false,
