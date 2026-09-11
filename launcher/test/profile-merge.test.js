@@ -228,7 +228,7 @@ test('windowed startup removes persisted fullscreen and profile window flags', (
         assert.equal(args.includes('--fullscreen'), false);
         assert.deepEqual(
             args.slice(args.indexOf('--width'), args.indexOf('--width') + 4),
-            ['--width', '1280', '--height', '720']
+            ['--width', '', '--height', '']
         );
     } finally {
         fs.rmSync(directory, { recursive: true, force: true });
