@@ -969,11 +969,19 @@ class MinecraftLauncher {
         appendGameArg('--accessToken', accessToken);
         appendGameArg('--userProperties', '{}');
         appendGameArg('--userType', this.config.profile.authMode === 'offline' ? 'legacy' : 'mojang');
-        if (gameConfig.fullscreen && !hasGameArg('--fullscreen')) gameArgs.push('--fullscreen');
-        if (!gameConfig.fullscreen) {
-            appendGameArg('--width', gameConfig.width || 854);
-            appendGameArg('--height', gameConfig.height || 480);
-        }
+        // Удаляем параметры разрешения из профиля и задаём их ровно один раз.
+        // Так старый fullscreen/размер из profile.json не успевает временно
+        // переключить рабочий стол перед применением настроек пользователя.
+        const removeGameArg = (name, hasValue = true) => {
+            for (let i = gameArgs.length - 1; i >= 0; i--) {
+                if (gameArgs[i] === name) gameArgs.splice(i, hasValue ? 2 : 1);
+            }
+        };
+        removeGameArg('--fullscreen', false);
+        removeGameArg('--width');
+        removeGameArg('--height');
+        if (gameConfig.fullscreen) gameArgs.push('--fullscreen');
+        else gameArgs.push('--width', String(gameConfig.width || 854), '--height', String(gameConfig.height || 480));
 
         return [
             `-Xms${gameConfig.ramMin || 2048}M`,
@@ -1083,7 +1091,12 @@ class MinecraftLauncher {
         this.report('Запуск игры...');
         const child = spawn(java, args, {
             cwd: instancePath,
-            windowsHide: false,
+            // Игра запускается напрямую из Electron: не показываем
+            // консольное окно Java на Windows.
+            windowsHide: true,
+            // Позволяет игре продолжить работу, если пользователь выбрал
+            // закрывать лаунчер после запуска.
+            detached: true,
             stdio: ['ignore', log, log]
         });
 

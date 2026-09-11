@@ -461,6 +461,29 @@
     color: var(--text-muted);
 }
 
+.settings-select {
+    width: 100%;
+    padding: 10px 14px;
+    background: rgba(10, 10, 20, 0.72);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+}
+
+.settings-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(255, 45, 138, 0.15);
+}
+
+.settings-select option {
+    background: #171525;
+    color: var(--text);
+}
+
 .field-input {
     display: flex;
     gap: 8px;
