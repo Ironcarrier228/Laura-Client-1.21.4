@@ -189,6 +189,38 @@ Fabric API, и **сам запускает игру** без лаунчера Mo
 
 Собранный артефакт: `build/libs/laura-client-<version>.jar`.
 
+### Кастомные сборки (dev / public)
+
+Для релизных сборок есть скрипты, которые выбирают тип сборки и дату окончания
+(закладываются в `assets/laura/build.json` и читаются классом `laura.core.BuildInfo`):
+
+| Тип | Срок окончания |
+|---|---|
+| **dev** | автоматически `01.01.2099 00:00` (вводить не нужно) |
+| **public** | вводит сам сборщик: `дд.мм.гггг` или `дд.мм.гггг чч:мм` |
+
+```bash
+# Linux / macOS — интерактивный режим (меню)
+./build.sh
+
+# dev-сборка
+./build.sh dev
+
+# public-сборка с нужным сроком
+./build.sh public 31.12.2026
+./build.sh public "31.12.2026 23:59"
+```
+
+```bat
+:: Windows — то же самое
+build.bat
+build.bat dev
+build.bat public 31.12.2026
+```
+
+Скрипты вызывают `gradlew clean build -PlauraBuildType=<тип> -PlauraExpire="<срок>"`
+и дополнительно кладут готовый JAR в `build/release/Laura-Client-v<версия>-<тип>.jar`.
+
 > **Примечание.** При первом запуске Gradle скачает зависимости из Maven Central и
 > `https://maven.fabricmc.net/`, а Loom подготовит тиры `minecraft` и `yarn`.
 

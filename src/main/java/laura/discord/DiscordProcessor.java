@@ -1,6 +1,7 @@
 package laura.discord;
 
 import laura.config.BaseProcessor;
+import laura.core.BuildInfo;
 import laura.core.Laura;
 
 import java.io.IOException;
@@ -11,6 +12,11 @@ import java.util.concurrent.TimeUnit;
 /** Module-controlled RPC. All connection and activity commands run off the render thread. */
 public class DiscordProcessor extends BaseProcessor {
     private static final long DEFAULT_CLIENT_ID = 1400721859848298640L;
+    /** Иконка клиента (assets/laura/icon.png) из этого репозитория. */
+    private static final String ICON_URL =
+            "https://raw.githubusercontent.com/Ironcarrier228/Laura-Client-1.21.4/main/src/main/resources/assets/laura/icon.png";
+    private static final String GITHUB_URL = "https://github.com/Ironcarrier228/Laura-Client-1.21.4";
+    private static final String DOWNLOAD_URL = GITHUB_URL + "/releases";
     private volatile DiscordIPC ipc;
     private ScheduledExecutorService scheduler;
 
@@ -103,7 +109,7 @@ public class DiscordProcessor extends BaseProcessor {
         } catch (Exception ignored) {
         }
 
-        String buildType = "public";
+        String buildType = BuildInfo.type();
         try {
             if (Laura.getInstance() != null && Laura.getInstance().c() != null) {
                 buildType = "development";
@@ -111,16 +117,18 @@ public class DiscordProcessor extends BaseProcessor {
         } catch (Exception ignored) {
         }
 
-        // Фикс оригинального бага: было два вызова largeImage, первый с пустым ключом ""
-        // Теперь один корректный вызов. Discord поддерживает https URL как ключ если включена опция external images,
-        // иначе нужно загрузить ассет в портале разработчика и использовать его имя.
+        // Иконка — наша (assets/laura/icon.png из репозитория), старое фото imgur удалено.
+        // Discord поддерживает https URL как ключ largeImage (опция external images);
+        // если нужен вариант для всех клиентов — загрузите иконку в портале разработчика
+        // и замените ICON_URL на имя ассета.
         Activity activity = new Activity.a()
                 .type(ActivityType.PLAYING)
                 .b("username: " + username) // details
                 .state("build: " + buildType) // state
-                .largeImage("https://i.imgur.com/E6dkFRc.jpeg", "Laura Client | https://github.com/Ironcarrier228/Laura-Client")
+                .largeImage(ICON_URL, "Laura Client")
                 .startAt(startedAt)
-                .c("Новости", "https://github.com/Ironcarrier228/Laura-Client")
+                .c("Скачать", DOWNLOAD_URL)
+                .c("GitHub", GITHUB_URL)
                 .build();
 
         session.a(activity);
