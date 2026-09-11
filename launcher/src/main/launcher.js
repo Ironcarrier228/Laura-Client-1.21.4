@@ -1054,7 +1054,11 @@ class MinecraftLauncher {
         const prepared = await this.prepare(instancePath, clientJar);
         const args = this.buildLaunchArgs(prepared.profile, prepared, gameConfig);
         const logPath = path.join(instancePath, 'laura-launcher.log');
-        const log = fs.createWriteStream(logPath, { flags: 'a' });
+        // Лог перезаписывается при каждом запуске (как Minecraft latest.log).
+        // Раньше файл дописывался (flags: 'a'), поэтому старый краш
+        // «duplicate ASM classes» оставался в начале файла навсегда и
+        // выглядел как текущая ошибка, хотя игра давно запускается нормально.
+        const log = fs.createWriteStream(logPath, { flags: 'w' });
         // spawn() принимает только уже открытые потоки: если передать
         // WriteStream до события open — будет ERR_INVALID_ARG_VALUE и запуск
         // молча упадёт на последнем шаге. Ждём открытия лог-файла.
@@ -1066,6 +1070,16 @@ class MinecraftLauncher {
             log.once('open', resolve);
             log.once('error', () => reject(new Error(`Не удалось открыть лог-файл ${logPath}`)));
         });
+        // Шапку пишем синхронно в уже открытый fd — так она гарантированно
+        // окажется первой строкой файла, до вывода самой Java.
+        try {
+            fs.writeSync(
+                log.fd,
+                `[${new Date().toISOString()}] Laura Launcher: запуск ${prepared.profile.mainClass}\n` +
+                `[${new Date().toISOString()}] Java: ${java}\n` +
+                `[${new Date().toISOString()}] Инстанс: ${instancePath}\n`
+            );
+        } catch (_) { /* лог не должен ломать запуск */ }
         this.report('Запуск игры...');
         const child = spawn(java, args, {
             cwd: instancePath,
