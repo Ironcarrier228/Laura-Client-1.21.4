@@ -49,12 +49,35 @@ configurations {
 	bundleLibs
 }
 
+// Кастомные сборки: тип (dev/public) и дата окончания (expire).
+// По умолчанию — обычная public-сборка с бесконечным сроком;
+// для сборки с выбором типа и срока используйте build.sh / build.bat.
+ext {
+	lauraBuildType = project.findProperty('lauraBuildType') ?: 'public'
+	lauraExpire = project.findProperty('lauraExpire') ?: '01.01.2099 00:00'
+	lauraBuiltAt = project.findProperty('lauraBuiltAt') ?: new Date().format('dd.MM.yyyy HH:mm')
+}
+
 processResources {
 	def version = project.version
 	inputs.property "version", version
+	inputs.property "lauraBuildType", lauraBuildType
+	inputs.property "lauraExpire", lauraExpire
+	inputs.property "lauraBuiltAt", lauraBuiltAt
 
 	filesMatching("fabric.mod.json") {
 		expand "version": version
+	}
+
+	// build.json — метаданные сборки (тип, срок окончания, время сборки).
+	// Читается на рантайме классом laura.core.BuildInfo.
+	filesMatching("assets/laura/build.json") {
+		expand(
+			"version": version,
+			"lauraBuildType": lauraBuildType,
+			"lauraExpire": lauraExpire,
+			"lauraBuiltAt": lauraBuiltAt
+		)
 	}
 }
 

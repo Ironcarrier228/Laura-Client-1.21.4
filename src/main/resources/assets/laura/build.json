@@ -1,0 +1,6 @@
+{
+  "version": "${version}",
+  "buildType": "${lauraBuildType}",
+  "expire": "${lauraExpire}",
+  "builtAt": "${lauraBuiltAt}"
+}

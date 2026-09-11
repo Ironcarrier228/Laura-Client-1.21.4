@@ -39,7 +39,9 @@ public class Laura {
     }
 
     protected void initialize() {
-        this.currentUser = new User("1", "Ironcarrier", "Owner", "Owner", "01.01.2099 00:00", "");
+        // Дата окончания берётся из метаданных сборки (build.json),
+        // которые задаёт build.sh / build.bat: dev — 2099 год, public — вводит сборщик.
+        this.currentUser = new User("1", "Ironcarrier", "Owner", "Owner", BuildInfo.expire(), "");
         instance = this;
         instanceRef = this;
 
