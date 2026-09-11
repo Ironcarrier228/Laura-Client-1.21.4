@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "setup": "npm install"
   },
   "author": "Ironcarrier and Fen",
   "license": "MIT",
@@ -17,12 +18,22 @@
   "build": {
     "appId": "com.laura.client.launcher",
     "productName": "Laura Launcher",
+    "directories": {
+      "output": "dist"
+    },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "../windows/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "files": [
       "src/**/*",
-      "assets/**/*"
+      "package.json"
     ],
     "extraResources": [
       {

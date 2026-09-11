@@ -3,3 +3,5 @@ build/
 run/
 .idea/
 bin/
+node_modules/
+launcher/dist/
