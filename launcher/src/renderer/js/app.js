@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Поля ввода — сохранение
     step('поля настроек', () => {
-        ['java-path', 'instance-path', 'client-jar-path', 'mc-version', 'nickname', 'res-width', 'res-height', 'fullscreen', 'autoupdate', 'animations']
+        ['java-path', 'instance-path', 'client-jar-path', 'mc-version', 'nickname', 'res-width', 'res-height', 'fullscreen', 'autoupdate', 'after-launch', 'animations']
             .forEach(id => {
                 const el = $('#' + id);
                 if (!el) return;
@@ -327,6 +327,7 @@ function applyConfigToUI() {
     $('#res-height').value = c.game.height;
     $('#fullscreen').checked = c.game.fullscreen;
     $('#autoupdate').checked = c.game.autoUpdate;
+    $('#after-launch').value = c.game.afterLaunch || 'stay';
     if (c.ui) $('#animations').checked = c.ui.animations !== false;
 
     // Play tab
@@ -366,7 +367,8 @@ async function saveConfig() {
             width: parseInt($('#res-width').value, 10) || 854,
             height: parseInt($('#res-height').value, 10) || 480,
             fullscreen: $('#fullscreen').checked,
-            autoUpdate: $('#autoupdate').checked
+            autoUpdate: $('#autoupdate').checked,
+            afterLaunch: $('#after-launch').value
         },
         ui: {
             accent: '#ff2d8a',

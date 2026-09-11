@@ -23,7 +23,10 @@ const DEFAULT_CONFIG = {
         fullscreen: false,
         width: 854,
         height: 480,
-        autoUpdate: true
+        autoUpdate: true,
+        // Что делать с окном лаунчера после успешного запуска игры:
+        // stay — оставить, minimize — свернуть, close — закрыть.
+        afterLaunch: 'stay'
     },
     ui: {
         accent: '#ff2d8a',
@@ -111,6 +114,9 @@ class Config {
         out.game.javaPath = typeof out.game.javaPath === 'string'
             ? out.game.javaPath
             : '';
+        if (!['stay', 'minimize', 'close'].includes(out.game.afterLaunch)) {
+            out.game.afterLaunch = DEFAULT_CONFIG.game.afterLaunch;
+        }
         out.profile.nickname = String(out.profile.nickname || DEFAULT_CONFIG.profile.nickname)
             .replace(/[\r\n]/g, '')
             .slice(0, 16) || DEFAULT_CONFIG.profile.nickname;

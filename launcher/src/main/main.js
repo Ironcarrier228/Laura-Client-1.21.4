@@ -183,6 +183,14 @@ ipcMain.handle('minecraft:launch', async (_, options) => {
     };
     try {
         const result = await launcher.launch(options);
+        // Поведение окна после того, как Java действительно стартовала.
+        // Важно делать это только после успешного spawn: при ошибке лаунчер
+        // остаётся видимым и показывает пользователю причину.
+        const afterLaunch = getConfig().get().game.afterLaunch;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            if (afterLaunch === 'minimize') mainWindow.minimize();
+            else if (afterLaunch === 'close') mainWindow.close();
+        }
         return { success: true, ...result };
     } catch (err) {
         return { success: false, error: err.message };
