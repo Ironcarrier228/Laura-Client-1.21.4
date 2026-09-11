@@ -112,6 +112,9 @@
                             <span>Папка игры</span>
                         </button>
                     </div>
+
+                    <!-- Реальный путь к папке игры — клик открывает её в проводнике -->
+                    <button class="instance-hint" id="instance-hint" type="button" title="Открыть папку игры"></button>
                 </div>
 
                 <div class="news-section">
@@ -185,7 +188,8 @@
                         <label class="field">
                             <span class="field-label">Папка инстанса</span>
                             <div class="field-input">
-                                <input type="text" id="instance-path" placeholder="%LOCALAPPDATA%\Laura Client\instance">
+                                <input type="text" id="instance-path" placeholder="Оставьте пустым для папки по умолчанию">
+                                <button class="btn-ghost" id="btn-open-instance" title="Открыть папку инстанса">Папка</button>
                                 <button class="btn-ghost" data-browse="instance">Обзор</button>
                             </div>
                         </label>
@@ -362,14 +366,14 @@
                 <p class="tab-subtitle">Ironcarrier и Fen</p>
             </header>
             <div class="team-grid">
-                <article class="member-card">
+                <article class="member-card" data-login="Ironcarrier228">
                     <div class="member-avatar" data-color="pink"></div>
                     <h3 class="member-name">Ironcarrier</h3>
                     <div class="member-role">Разработка клиента</div>
                     <p class="member-bio">Создание Laura Client и архитектура проекта.</p>
                     <a class="member-github" href="https://github.com/Ironcarrier228" target="_blank" rel="noopener noreferrer">GitHub профиля</a>
                 </article>
-                <article class="member-card">
+                <article class="member-card" data-login="bakaforlive">
                     <div class="member-avatar" data-color="purple"></div>
                     <h3 class="member-name">Fen</h3>
                     <div class="member-role">Разработка и дизайн</div>

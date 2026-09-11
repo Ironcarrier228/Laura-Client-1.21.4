@@ -6,6 +6,49 @@ const $ = (s, ctx = document) => ctx.querySelector(s);
 const $$ = (s, ctx = document) => Array.from(ctx.querySelectorAll(s));
 
 // ============================================
+// Helpers
+// ============================================
+
+// Привязка клика по id. Раньше эта функция использовалась, но не была
+// определена — из-за ReferenceError падал весь DOMContentLoaded, и кнопки
+// ИГРАТЬ / «Папка игры» и остальные контролы оставались без обработчиков.
+function bindClick(id, handler) {
+    const el = document.getElementById(id);
+    if (!el) {
+        console.warn('[laura] кнопка не найдена в разметке, клик не привязан:', id);
+        return;
+    }
+    el.addEventListener('click', handler);
+}
+
+// Каждый блок инициализации оборачиваем в step(), чтобы ошибка в одном
+// месте больше не отключала все остальные кнопки и контролы.
+function step(name, fn) {
+    try {
+        fn();
+    } catch (err) {
+        console.error(`[laura] инициализация: «${name}» —`, err);
+    }
+}
+
+// Кнопка «Папка игры» (и «Папка» в настройках): открывает папку инстанса.
+// Папка создаётся автоматически, если её ещё нет.
+async function onOpenGameFolder() {
+    try {
+        const result = await window.sakura.shell.openGameFolder();
+        if (result && result.success) {
+            toast(`Папка игры: ${result.path}`, 'success');
+            updateInstanceHint(result.path);
+        } else {
+            const reason = (result && result.error) || 'неизвестная ошибка';
+            toast(`Не удалось открыть папку игры: ${reason}`, 'error');
+        }
+    } catch (err) {
+        toast(`Не удалось открыть папку игры: ${err.message}`, 'error');
+    }
+}
+
+// ============================================
 // State
 // ============================================
 const state = {
@@ -20,63 +63,131 @@ const state = {
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
     // Загружаем конфиг
-    state.config = await window.sakura.config.get();
-    applyConfigToUI();
+    try {
+        state.config = await window.sakura.config.get();
+        applyConfigToUI();
+    } catch (err) {
+        console.error('[laura] не удалось загрузить конфиг:', err);
+    }
 
-    // Управление окном
-    $('#btn-minimize').onclick = () => window.sakura.window.minimize();
-    $('#btn-maximize').onclick = () => window.sakura.window.maximize();
-    $('#btn-close').onclick = () => window.sakura.window.close();
+    step('управление окном', () => {
+        $('#btn-minimize').onclick = () => window.sakura.window.minimize();
+        $('#btn-maximize').onclick = () => window.sakura.window.maximize();
+        $('#btn-close').onclick = () => window.sakura.window.close();
+    });
 
     // Навигация
-    $$('.nav-item').forEach(btn => {
-        btn.onclick = () => switchTab(btn.dataset.tab);
+    step('навигация', () => {
+        $$('.nav-item').forEach(btn => {
+            btn.onclick = () => switchTab(btn.dataset.tab);
+        });
     });
 
     // Play
-    bindClick('btn-play', onPlayClick);
+    step('кнопка ИГРАТЬ', () => bindClick('btn-play', onPlayClick));
 
     // Папка игры — на главной и в настройках
-    bindClick('btn-open-game-folder', onOpenGameFolder);
-    bindClick('btn-open-instance', onOpenGameFolder);
+    step('кнопки папки игры', () => {
+        bindClick('btn-open-game-folder', onOpenGameFolder);
+        bindClick('btn-open-instance', onOpenGameFolder);
+        bindClick('instance-hint', onOpenGameFolder);
+    });
 
     // Слайдеры RAM
-    bindSlider('ram-min', 'ram-min-value', v => `${v} МБ`);
-    bindSlider('ram-max', 'ram-max-value', v => `${v} МБ`);
+    step('слайдеры RAM', () => {
+        bindSlider('ram-min', 'ram-min-value', v => `${v} МБ`);
+        bindSlider('ram-max', 'ram-max-value', v => `${v} МБ`);
+    });
 
     // Авторизация — загрузчик зафиксирован на Fabric.
-    bindSegmented('[data-auth]', val => { state.authMode = val; saveDebounced(); });
+    step('режим авторизации', () => {
+        bindSegmented('[data-auth]', val => { state.authMode = val; saveDebounced(); });
+    });
 
     // Кнопка добавить мод
-    $('#btn-add-mod').onclick = () => {
-        toast('Добавление модов появится в следующей версии', 'info');
-    };
+    step('кнопка добавления мода', () => {
+        $('#btn-add-mod').onclick = () => {
+            toast('Добавление модов появится в следующей версии', 'info');
+        };
+    });
 
     // Кнопка "Обзор" в настройках
-    $$('[data-browse]').forEach(btn => {
-        btn.onclick = () => onBrowse(btn.dataset.browse);
+    step('кнопки «Обзор»', () => {
+        $$('[data-browse]').forEach(btn => {
+            btn.onclick = () => onBrowse(btn.dataset.browse);
+        });
     });
 
     // Поля ввода — сохранение
-    ['java-path', 'instance-path', 'client-jar-path', 'mc-version', 'nickname', 'res-width', 'res-height', 'fullscreen', 'autoupdate', 'animations']
-        .forEach(id => {
-            const el = $('#' + id);
-            if (!el) return;
-            const ev = el.type === 'checkbox' ? 'change' : 'input';
-            el.addEventListener(ev, saveDebounced);
-        });
+    step('поля настроек', () => {
+        ['java-path', 'instance-path', 'client-jar-path', 'mc-version', 'nickname', 'res-width', 'res-height', 'fullscreen', 'autoupdate', 'animations']
+            .forEach(id => {
+                const el = $('#' + id);
+                if (!el) return;
+                const ev = el.type === 'checkbox' ? 'change' : 'input';
+                el.addEventListener(ev, saveDebounced);
+            });
+    });
 
     // Параллакс по движению мыши
-    bindParallax();
+    step('параллакс', bindParallax);
 
     // Если анимации выключены в конфиге
-    if (state.config.ui && state.config.ui.animations === false) {
+    if (state.config && state.config.ui && state.config.ui.animations === false) {
         document.body.classList.add('no-animations');
     }
 
+    // Прогресс подготовки игры — статусы приходят из main-процесса,
+    // чтобы было видно, что происходит после нажатия ИГРАТЬ.
+    step('прогресс запуска', () => {
+        if (window.sakura.minecraft.onProgress) {
+            window.sakura.minecraft.onProgress(message => {
+                const status = $('#play-status');
+                if (status && message) status.textContent = message;
+            });
+        }
+    });
+
+    // Показываем, где лежит папка игры, и подтягиваем аватарки команды.
+    step('путь к папке игры', () => { updateInstanceHint(); });
+    step('аватарки «О нас»', () => { loadTeamAvatars(); });
+
     // Стартовое сообщение
-    toast('Laura Launcher запущен', 'success');
+    step('стартовый тост', () => toast('Laura Launcher запущен', 'success'));
 });
+
+// ============================================
+// Instance path hint
+// ============================================
+
+// Показывает реальный путь к папке инстанса на главном экране
+// (и подставляет его в placeholder настроек), чтобы было понятно,
+// куда лаунчер ставит моды и где искать логи.
+async function updateInstanceHint(forcePath) {
+    const el = $('#instance-hint');
+    let info = null;
+
+    if (forcePath) {
+        info = { path: forcePath };
+    } else if (window.sakura.instance && window.sakura.instance.info) {
+        try {
+            info = await window.sakura.instance.info();
+        } catch (err) {
+            console.warn('[laura] не удалось получить путь инстанса:', err);
+        }
+    }
+    if (!info || !info.path) return;
+
+    if (el) {
+        el.textContent = info.path;
+        el.title = info.exists
+            ? 'Открыть папку игры'
+            : `Папка будет создана при первом запуске: ${info.path}`;
+    }
+
+    const input = $('#instance-path');
+    if (input && !input.value) input.placeholder = info.path;
+}
 
 // ============================================
 // Tab switching
@@ -85,7 +196,11 @@ function switchTab(tab) {
     state.currentTab = tab;
     $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
     $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    $('.content').scrollTo({ top: 0, behavior: 'smooth' });
+    try {
+        $('.content').scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (_) {
+        // Старые движки без Element.scrollTo — просто пропускаем прокрутку.
+    }
 }
 
 // ============================================
@@ -170,11 +285,16 @@ async function onBrowse(kind) {
     const folder = await window.sakura.dialog.selectFolder();
     if (!folder) return;
     if (kind === 'java') {
-        // Java — выбираем bin, добавляем java.exe
-        const javaPath = folder.endsWith('java.exe') ? folder : `${folder}\\bin\\java.exe`;
-        $('#java-path').value = javaPath;
-        saveDebounced();
-    } else if (kind === 'instance') {
+        // Путь к java.exe/java строит main-процесс: он знает платформу и
+        // понимает и корень JDK, и выбранную папку bin.
+        const javaPath = await window.sakura.dialog.selectJava();
+        if (javaPath) {
+            $('#java-path').value = javaPath;
+            saveDebounced();
+        }
+        return;
+    }
+    if (kind === 'instance') {
         $('#instance-path').value = folder;
         saveDebounced();
     }
@@ -310,5 +430,47 @@ function refreshProfile() {
     if (el) {
         const cur = parseInt(el.textContent, 10) || 0;
         el.textContent = String(cur + 1);
+    }
+}
+
+// ============================================
+// Team avatars («О нас»)
+// ============================================
+
+// Аватарки подтягиваются с GitHub через main-процесс (с кэшем на диске),
+// поэтому вкладка «О нас» работает и офлайн — показывается последний кэш,
+// а если его нет, остаётся цветная заглушка.
+async function loadTeamAvatars() {
+    if (!window.sakura.about || typeof window.sakura.about.team !== 'function') return;
+
+    let team = null;
+    try {
+        team = await window.sakura.about.team();
+    } catch (err) {
+        console.warn('[laura] не удалось получить данные команды:', err);
+        return;
+    }
+    if (!Array.isArray(team)) return;
+
+    for (const member of team) {
+        if (!member || !member.login) continue;
+        const card = $(`.member-card[data-login="${CSS.escape(member.login)}"]`);
+        if (!card) continue;
+
+        const avatarEl = $('.member-avatar', card);
+        // Идемпотентно: если аватар уже вставлен, повторный вызов не дублирует.
+        if (avatarEl && member.avatar && !$('.member-avatar-img', avatarEl)) {
+            const img = document.createElement('img');
+            img.className = 'member-avatar-img';
+            img.alt = member.name || member.login;
+            img.addEventListener('load', () => avatarEl.classList.add('has-photo'));
+            img.addEventListener('error', () => img.remove());
+            img.src = member.avatar;
+            avatarEl.appendChild(img);
+        }
+
+        // Обновляем ссылку на GitHub из данных main-процесса
+        const link = $('.member-github', card);
+        if (link && member.github) link.href = member.github;
     }
 }
