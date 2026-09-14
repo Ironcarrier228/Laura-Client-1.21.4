@@ -194,7 +194,7 @@ public class AutoPottBot extends Module {
                 && System.currentTimeMillis() >= this.waterBackoff) {
             int capacity = this.emptyStandCapacity();
             int currentWater = this.waterBottleCount();
-            int desired = Math.min((int) this.waterBuffer.c(), Math.max(3, capacity));
+            int desired = Math.min(this.waterBuffer.c().intValue(), Math.max(3, capacity));
             int spareFree = Math.max(0, this.freeSlots() - 5);
             int take = Math.min(desired, currentWater + spareFree);
             if (capacity > 0 && take > currentWater) {
@@ -289,7 +289,7 @@ public class AutoPottBot extends Module {
             return;
         }
 
-        if (!this.clickTimer.elapsed((long) this.clickDelay.c())) {
+        if (!this.clickTimer.elapsed(this.clickDelay.c().longValue())) {
             return;
         }
 
@@ -443,7 +443,7 @@ public class AutoPottBot extends Module {
             return;
         }
 
-        if (this.clickTimer.elapsed((long) this.clickDelay.c())) {
+        if (this.clickTimer.elapsed(this.clickDelay.c().longValue())) {
             this.clickTimer.reset();
             this.lookAt(this.waterSource);
             mc.interactionManager.interactItem(mc.player, Hand.MAIN_HAND);
@@ -558,7 +558,7 @@ public class AutoPottBot extends Module {
             return;
         }
 
-        if (!this.clickTimer.elapsed((long) this.clickDelay.c())) {
+        if (!this.clickTimer.elapsed(this.clickDelay.c().longValue())) {
             return;
         }
 

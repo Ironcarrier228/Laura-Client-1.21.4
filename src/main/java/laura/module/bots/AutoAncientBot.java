@@ -141,7 +141,7 @@ public class AutoAncientBot extends Module {
             return;
         }
 
-        if (Laura.getInstance().getModuleProcessor().B().m()) {
+        if (Laura.getInstance().getModuleProcessor().t().B().m()) {
             ChatUtil.sendMessage("[AutoAncient] Disable Aura first.");
             a(false);
             return;
@@ -1671,7 +1671,7 @@ public class AutoAncientBot extends Module {
     }
 
     private AncientXray xray() {
-        return Laura.getInstance().getModuleProcessor().ancientXray();
+        return Laura.getInstance().getModuleProcessor().t().ancientXray();
     }
 
     private void logDebug(String message) {
