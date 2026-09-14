@@ -18,6 +18,7 @@ import laura.module.misc.*;
 import laura.module.movement.*;
 import laura.module.player.*;
 import laura.module.render.*;
+import laura.module.movement.Timer;
 import laura.render.Animations;
 import laura.setting.BindSetting;
 import laura.setting.Setting;
@@ -154,6 +155,18 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
     private final ChromaticVignette chromaticVignette = new ChromaticVignette();
     private final SpotifyHUD spotifyHUD = new SpotifyHUD();
     private final DiscordRPC discordRPC = new DiscordRPC();
+    // Модули, портированные из Wexside.
+    private final Speed speed = new Speed();
+    private final NoFall noFall = new NoFall();
+    private final Timer timer = new Timer();
+    private final Jesus jesus = new Jesus();
+    private final NoWeb noWeb = new NoWeb();
+    private final Criticals criticals = new Criticals();
+    private final FastBow fastBow = new FastBow();
+    private final BowHelper bowHelper = new BowHelper();
+    private final FakePlayer fakePlayer = new FakePlayer();
+    private final AutoInvisible autoInvisible = new AutoInvisible();
+    private final AutoDrop autoDrop = new AutoDrop();
     private Interface bd;
 
     public static void a(JSONObject obj, Module module) {
@@ -186,7 +199,9 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
                 this.p, this.w, this.bd, this.at, this.au, this.aB, this.aO, this.e, this.aN, this.aP, this.aU, this.aV,
                 this.aW, this.aX, this.aZ, this.ba, this.bb, this.Y, this.damageIndicator, this.killText, this.electricArcs,
                 this.trails, this.pulseRings, this.freeLook, this.volumetricFog, this.ambientParticles,
-                this.chromaticVignette, this.spotifyHUD, this.discordRPC);
+                this.chromaticVignette, this.spotifyHUD, this.discordRPC,
+                this.speed, this.noFall, this.timer, this.jesus, this.noWeb, this.criticals,
+                this.fastBow, this.bowHelper, this.fakePlayer, this.autoInvisible, this.autoDrop);
         super.setup();
     }
 
