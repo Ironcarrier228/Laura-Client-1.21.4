@@ -80,8 +80,8 @@ public class BowHelper extends Module {
         float power = bowPower();
         Vec3d eye = mc.player.getEyePos();
         Vec3d aim = this.target.getPos().add(0.0d, (this.target.getHeight() * 0.5d) + 0.1d, 0.0d);
-        double targetSpeedX = this.target.getX() - this.target.lastX;
-        double targetSpeedZ = this.target.getZ() - this.target.lastZ;
+        double targetSpeedX = this.target.getX() - this.target.prevX;
+        double targetSpeedZ = this.target.getZ() - this.target.prevZ;
         double targetSpeed = Math.sqrt((targetSpeedX * targetSpeedX) + (targetSpeedZ * targetSpeedZ));
         Vec3d predicted = aim;
         float pitch = 0.0f;

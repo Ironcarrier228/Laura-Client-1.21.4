@@ -145,8 +145,8 @@ public class Timer extends Module {
     private void updateBurst() {
         long now = System.nanoTime();
         boolean moving = mc.player != null
-                && (Math.abs(mc.player.getX() - mc.player.lastX) > 0.001d
-                || Math.abs(mc.player.getZ() - mc.player.lastZ) > 0.001d
+                && (Math.abs(mc.player.getX() - mc.player.prevX) > 0.001d
+                || Math.abs(mc.player.getZ() - mc.player.prevZ) > 0.001d
                 || !mc.player.isOnGround());
         if (this.lastFrameNanos == 0L) {
             this.lastFrameNanos = now;

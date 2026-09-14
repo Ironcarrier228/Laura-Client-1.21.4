@@ -33,7 +33,7 @@ public class Jesus extends Module {
         if (!mc.player.isTouchingWater() && !mc.player.isInLava()) {
             return;
         }
-        if (mc.player.isFallFlying() || mc.player.hasVehicle()) {
+        if (mc.player.isGliding() || mc.player.hasVehicle()) {
             return;
         }
         float speedValue = this.mode.l("Авто") ? autoSpeed() : this.speed.c().floatValue();

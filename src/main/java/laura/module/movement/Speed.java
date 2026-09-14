@@ -32,7 +32,7 @@ public class Speed extends Module {
         if (mc.player == null || mc.world == null) {
             return;
         }
-        if (mc.player.isFallFlying() || mc.player.isTouchingWater() || mc.player.hasVehicle()) {
+        if (mc.player.isGliding() || mc.player.isTouchingWater() || mc.player.hasVehicle()) {
             return;
         }
         if (this.mode.l("Ванильный")) {

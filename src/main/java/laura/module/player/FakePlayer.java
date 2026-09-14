@@ -145,7 +145,7 @@ public final class FakePlayer extends Module {
             popTotem();
         } else {
             this.bot.setHealth(health);
-            mc.world.playSoundClient(this.bot.getX(), this.bot.getY(), this.bot.getZ(),
+            mc.world.playSound(this.bot.getX(), this.bot.getY(), this.bot.getZ(),
                     SoundEvents.ENTITY_PLAYER_HURT, SoundCategory.PLAYERS, 1.0f, 1.0f, false);
         }
         event.a(true);
@@ -175,8 +175,8 @@ public final class FakePlayer extends Module {
         entity.refreshPositionAndAngles(x, mc.player.getY(), z, yaw, 0.0f);
         entity.bodyYaw = yaw;
         entity.headYaw = yaw;
-        entity.lastBodyYaw = yaw;
-        entity.lastHeadYaw = yaw;
+        entity.prevBodyYaw = yaw;
+        entity.prevHeadYaw = yaw;
         entity.setOnGround(true);
         equip(entity);
         entity.setHealth(entity.getMaxHealth());
@@ -270,12 +270,12 @@ public final class FakePlayer extends Module {
         this.healDelay = 20;
         refreshTotem();
         spawnTotemParticles();
-        mc.world.playSoundClient(this.bot.getX(), this.bot.getY(), this.bot.getZ(),
+        mc.world.playSound(this.bot.getX(), this.bot.getY(), this.bot.getZ(),
                 SoundEvents.ITEM_TOTEM_USE, SoundCategory.PLAYERS, 1.0f, 1.0f, false);
     }
 
     private void playAttackSound(boolean crit, float cooldown) {
-        mc.world.playSoundClient(mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+        mc.world.playSound(mc.player.getX(), mc.player.getY(), mc.player.getZ(),
                 crit ? SoundEvents.ENTITY_PLAYER_ATTACK_CRIT
                         : (cooldown > 0.9f ? SoundEvents.ENTITY_PLAYER_ATTACK_STRONG : SoundEvents.ENTITY_PLAYER_ATTACK_WEAK),
                 SoundCategory.PLAYERS, 1.0f, 1.0f, false);
@@ -326,7 +326,7 @@ public final class FakePlayer extends Module {
 
     private void addParticle(ParticleEffect effect, double x, double y, double z, double velocityX, double velocityY, double velocityZ) {
         if (mc.world != null) {
-            mc.world.addParticleClient(effect, true, x, y, z, velocityX, velocityY, velocityZ);
+            mc.world.addImportantParticle(effect, x, y, z, velocityX, velocityY, velocityZ);
         }
     }
 
@@ -362,7 +362,7 @@ public final class FakePlayer extends Module {
             } else {
                 this.moveY = (this.moveY - 0.08d) * 0.98d;
                 this.bot.move(MovementType.SELF, new Vec3d(0.0d, this.moveY, 0.0d));
-                this.bot.setVelocity(0.0d, this.bot.getY() - this.bot.lastY, 0.0d);
+                this.bot.setVelocity(0.0d, this.bot.getY() - this.bot.prevY, 0.0d);
             }
             return;
         }
@@ -425,7 +425,7 @@ public final class FakePlayer extends Module {
         }
         this.bot.setSprinting(Math.hypot(this.moveX, this.moveZ) > 0.18d);
         this.bot.move(MovementType.SELF, new Vec3d(this.moveX, this.moveY, this.moveZ));
-        this.bot.setVelocity(this.bot.getX() - this.bot.lastX, this.bot.getY() - this.bot.lastY, this.bot.getZ() - this.bot.lastZ);
+        this.bot.setVelocity(this.bot.getX() - this.bot.prevX, this.bot.getY() - this.bot.prevY, this.bot.getZ() - this.bot.prevZ);
         float targetYaw = (float) Math.toDegrees(Math.atan2(-(mc.player.getX() - this.bot.getX()), mc.player.getZ() - this.bot.getZ()));
         double eyeDeltaY = mc.player.getEyeY() - this.bot.getEyeY();
         double horizontal = Math.hypot(mc.player.getX() - this.bot.getX(), mc.player.getZ() - this.bot.getZ());

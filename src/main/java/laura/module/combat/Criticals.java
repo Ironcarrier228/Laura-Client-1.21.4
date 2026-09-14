@@ -38,7 +38,7 @@ public class Criticals extends Module {
         if (mc.player == null || mc.world == null || mc.player.networkHandler == null) {
             return;
         }
-        if (mc.player.isFallFlying()) {
+        if (mc.player.isGliding()) {
             return;
         }
         Entity target = event.b();

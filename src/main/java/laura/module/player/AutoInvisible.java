@@ -70,7 +70,7 @@ public class AutoInvisible extends Module {
         if (hotbarSlot == -1) {
             return;
         }
-        this.previousSlot = mc.player.getInventory().getSelectedSlot();
+        this.previousSlot = mc.player.getInventory().selectedSlot;
         selectSlot(hotbarSlot);
         mc.options.useKey.setPressed(true);
         this.drinking = true;
@@ -105,7 +105,7 @@ public class AutoInvisible extends Module {
         if (slot >= 0 && slot < 9) {
             return slot;
         }
-        int target = mc.player.getInventory().getSelectedSlot();
+        int target = mc.player.getInventory().selectedSlot;
         for (int hotbar = 0; hotbar < 9; hotbar++) {
             if (mc.player.getInventory().getStack(hotbar).isEmpty()) {
                 target = hotbar;
