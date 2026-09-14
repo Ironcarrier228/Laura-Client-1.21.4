@@ -6,7 +6,8 @@ public enum Category {
     Movement("I"),
     Render("t"),
     Player("L"),
-    Misc("D");
+    Misc("D"),
+    Bots("i");
 
     private final String icon;
 

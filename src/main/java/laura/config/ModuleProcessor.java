@@ -13,6 +13,8 @@ import laura.event.KeyEvent;
 import laura.lib.json.JSONArray;
 import laura.lib.json.JSONObject;
 import laura.lib.javassist.TokenId;
+import laura.module.bots.AutoAncientBot;
+import laura.module.bots.AutoPottBot;
 import laura.module.combat.*;
 import laura.module.misc.*;
 import laura.module.movement.*;
@@ -143,6 +145,9 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
     private final PotionThrower aZ = new PotionThrower();
     private final AutoBuy ba = new AutoBuy();
     private final AutoLeave bb = new AutoLeave();
+    private final AncientXray botsXray = new AncientXray();
+    private final AutoPottBot autoPottBot = new AutoPottBot();
+    private final AutoAncientBot autoAncientBot = new AutoAncientBot();
     private final Velocity bc = new Velocity();
     private final DamageIndicator damageIndicator = new DamageIndicator();
     private final KillText killText = new KillText();
@@ -201,7 +206,8 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
                 this.trails, this.pulseRings, this.freeLook, this.volumetricFog, this.ambientParticles,
                 this.chromaticVignette, this.spotifyHUD, this.discordRPC,
                 this.speed, this.noFall, this.timer, this.jesus, this.noWeb, this.criticals,
-                this.fastBow, this.bowHelper, this.fakePlayer, this.autoInvisible, this.autoDrop);
+                this.fastBow, this.bowHelper, this.fakePlayer, this.autoInvisible, this.autoDrop,
+                this.botsXray, this.autoPottBot, this.autoAncientBot);
         super.setup();
     }
 
@@ -877,6 +883,10 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
 
     public AutoLeave bb() {
         return this.bb;
+    }
+
+    public AncientXray ancientXray() {
+        return this.botsXray;
     }
 
     public Velocity bc() {
