@@ -115,7 +115,20 @@ public class Laura {
     public void a(KeyEvent event) {
         if (event.getAction() == 1 && Interface.mc.currentScreen == null && event.getKey() == 344) {
             MinecraftClient mc = Interface.mc;
+            // Модуль GuiSelector позволяет выбрать какой экран открывать по RShift
+            String guiStyle = resolveGuiStyle();
+            if ("Vanilla".equals(guiStyle)) {
+                // Открываем стандартное меню Minecraft (GameMenuScreen в 1.21)
+                mc.setScreen(new net.minecraft.client.gui.screen.GameMenuScreen(true));
+                return;
+            }
+            // По умолчанию и для "Laura" — открываем нативный ClickGUI Laura
             GUIScreen screen;
+            if ("Wild Classic".equals(guiStyle)) {
+                // Открываем WildClient-style ClickGUI (адаптированный под Laura API)
+                mc.setScreen(new laura.gui.wild.ClickGuiScreen());
+                return;
+            }
             if (this.currentScreen != null) {
                 screen = this.currentScreen;
             } else {
@@ -125,6 +138,25 @@ public class Laura {
             }
             mc.setScreen(screen);
         }
+    }
+
+    /**
+     * Возвращает текущий выбор модуля GuiSelector, или "Laura" если модуль не зарегистрирован.
+     * Используется в a(KeyEvent) чтобы решить какой экран открыть по RShift.
+     */
+    private String resolveGuiStyle() {
+        try {
+            Processor proc = getInstance().getModuleProcessor();
+            if (proc != null && proc.t() != null) {
+                for (laura.core.Module m : proc.t().e()) {
+                    if (m instanceof laura.module.misc.GuiSelector gs) {
+                        return gs.getSelectedStyle();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return "Laura";
     }
 
     @EventTarget(a = 0)
