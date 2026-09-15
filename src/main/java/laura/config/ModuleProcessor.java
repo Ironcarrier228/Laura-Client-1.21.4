@@ -156,6 +156,12 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
     private final ChromaticVignette chromaticVignette = new ChromaticVignette();
     private final SpotifyHUD spotifyHUD = new SpotifyHUD();
     private final DiscordRPC discordRPC = new DiscordRPC();
+    // WildClient-модули (портированы)
+    private final FreeLock freeLock = new FreeLock();
+    private final AutoLeave autoLeave = new AutoLeave();
+    private final AutoAccept autoAccept = new AutoAccept();
+    private final PvPSafe pvPSafe = new PvPSafe();
+    private final TotemVoices totemVoices = new TotemVoices();
     // Модули, портированные из Wexside.
     private final Speed speed = new Speed();
     private final NoFall noFall = new NoFall();
@@ -201,6 +207,7 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
                 this.aW, this.aX, this.aZ, this.ba, this.bb, this.Y, this.damageIndicator, this.killText, this.electricArcs,
                 this.trails, this.pulseRings, this.freeLook, this.volumetricFog, this.ambientParticles,
                 this.chromaticVignette, this.spotifyHUD, this.discordRPC,
+                this.freeLock, this.autoLeave, this.autoAccept, this.pvPSafe, this.totemVoices,
                 this.speed, this.noFall, this.timer, this.jesus, this.noWeb, this.criticals,
                 this.fastBow, this.bowHelper, this.fakePlayer, this.autoInvisible, this.autoDrop,
                 this.botsXray);
