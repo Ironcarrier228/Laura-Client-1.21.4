@@ -1,6 +1,7 @@
 package laura.module.misc;
 
 import laura.core.Category;
+import laura.core.Module;
 import laura.core.ModuleRegister;
 import laura.setting.ModeSetting;
 
