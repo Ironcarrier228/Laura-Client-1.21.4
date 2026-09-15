@@ -5,6 +5,7 @@ import laura.core.BuildInfo;
 import laura.core.Laura;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -93,6 +94,7 @@ public class DiscordProcessor extends BaseProcessor {
         } catch (Exception ex) {
             if (ipc == session) {
                 System.err.println("[DiscordRPC] Cannot update activity; retrying in 15 seconds: " + ex.getMessage());
+                ex.printStackTrace();
             }
         }
     }
@@ -130,6 +132,14 @@ public class DiscordProcessor extends BaseProcessor {
                 .c("Скачать", DOWNLOAD_URL)
                 .c("GitHub", GITHUB_URL)
                 .build();
+
+        // DEBUG: log full activity JSON to see what we're sending
+        String activityJson = activity.j().toString();
+        System.out.println("[DiscordRPC] Sending activity: " + activityJson);
+        System.out.println("[DiscordRPC] Buttons count: " + activity.h().map(List::size).orElse(0));
+        activity.h().ifPresent(btns -> btns.forEach(btn ->
+                System.out.println("[DiscordRPC] Button: " + btn.b() + " -> " + btn.c())
+        ));
 
         session.a(activity);
     }

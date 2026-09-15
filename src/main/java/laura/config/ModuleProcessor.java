@@ -13,8 +13,6 @@ import laura.event.KeyEvent;
 import laura.lib.json.JSONArray;
 import laura.lib.json.JSONObject;
 import laura.lib.javassist.TokenId;
-import laura.module.bots.AutoAncientBot;
-import laura.module.bots.AutoPottBot;
 import laura.module.combat.*;
 import laura.module.misc.*;
 import laura.module.movement.*;
@@ -146,8 +144,6 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
     private final AutoBuy ba = new AutoBuy();
     private final AutoLeave bb = new AutoLeave();
     private final AncientXray botsXray = new AncientXray();
-    private final AutoPottBot autoPottBot = new AutoPottBot();
-    private final AutoAncientBot autoAncientBot = new AutoAncientBot();
     private final Velocity bc = new Velocity();
     private final DamageIndicator damageIndicator = new DamageIndicator();
     private final KillText killText = new KillText();
@@ -160,6 +156,9 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
     private final ChromaticVignette chromaticVignette = new ChromaticVignette();
     private final SpotifyHUD spotifyHUD = new SpotifyHUD();
     private final DiscordRPC discordRPC = new DiscordRPC();
+    // WildClient-модули (портированы)
+    private final PvPSafe pvPSafe = new PvPSafe();
+    private final TotemVoices totemVoices = new TotemVoices();
     // Модули, портированные из Wexside.
     private final Speed speed = new Speed();
     private final NoFall noFall = new NoFall();
@@ -205,9 +204,10 @@ public class ModuleProcessor extends ConfigProcessor<Module> {
                 this.aW, this.aX, this.aZ, this.ba, this.bb, this.Y, this.damageIndicator, this.killText, this.electricArcs,
                 this.trails, this.pulseRings, this.freeLook, this.volumetricFog, this.ambientParticles,
                 this.chromaticVignette, this.spotifyHUD, this.discordRPC,
+                this.pvPSafe, this.totemVoices,
                 this.speed, this.noFall, this.timer, this.jesus, this.noWeb, this.criticals,
                 this.fastBow, this.bowHelper, this.fakePlayer, this.autoInvisible, this.autoDrop,
-                this.botsXray, this.autoPottBot, this.autoAncientBot);
+                this.botsXray);
         super.setup();
     }
 
