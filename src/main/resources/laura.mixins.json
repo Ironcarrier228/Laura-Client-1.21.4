@@ -89,6 +89,7 @@
     "mixin.PlayerEntityRendererMixin",
     "mixin.PlayerListHudMixin",
     "mixin.RenderSystemMixin",
+    "mixin.RenderTickCounterDynamicMixin",
     "mixin.ScreenMixin",
     "mixin.SkinTexturesMixin",
     "mixin.TextVisitFactoryMixin",

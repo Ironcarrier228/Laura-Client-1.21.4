@@ -1,6 +1,7 @@
 package baritone.api;
 
 import net.minecraft.block.Block;
+import net.minecraft.item.Item;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +17,9 @@ public final class BaritoneSettings {
     public final Setting<Double> randomLooking113 = new Setting<>(1.0d);
     public final Setting<Integer> maxFallHeightNoWater = new Setting<>(3);
     public final Setting<List<Block>> blocksToAvoid = new Setting<>(new ArrayList<>());
+    public final Setting<Boolean> assumeWalkOnLava = new Setting<>(false);
+    public final Setting<Boolean> walkWhileBreaking = new Setting<>(true);
+    public final Setting<List<Item>> acceptableThrowawayItems = new Setting<>(new ArrayList<>());
 
     public static final class Setting<T> {
         public T value;
