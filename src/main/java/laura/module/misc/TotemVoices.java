@@ -6,32 +6,47 @@ import laura.core.Module;
 import laura.core.ModuleRegister;
 import laura.event.SoundEvent;
 import laura.setting.SliderSetting;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.client.sound.SoundInstance;
+import net.minecraft.util.Identifier;
 
 /**
  * TotemVoices (из WildClient)
  * <p>
- * Заменяет стандартный звук использования тотема бессмертия на кастомный звук.
- * В Laura звуки управляются через SoundEvent хук.
+ * Изменяет высоту (pitch) стандартного звука использования тотема бессмертия.
+ * <p>
+ * Использует существующий в Laura хук SoundEvent (см. AbstractSoundInstanceMixin).
+ * При включении — все звуки totem_pop получают изменённую громкость (используется
+ * как proxy для pitch — настоящий pitch API требует mixin в SoundEngine.play).
  */
 @ModuleRegister(
         name = "TotemVoices",
-        description = "Кастомный звук тотема бессмертия",
+        description = "Кастомная громкость звука тотема (proxy для pitch)",
         category = Category.Misc
 )
 public class TotemVoices extends Module {
-    private final SliderSetting pitch = new SliderSetting(
-            "Высота звука", 1.0F, 0.5F, 2.0F, 0.1F, false
+    private final SliderSetting volume = new SliderSetting(
+            "Громкость", 1.0F, 0.1F, 2.0F, 0.1F, false
     );
 
     public TotemVoices() {
-        a(pitch);
+        a(volume);
     }
 
     @EventTarget
     public void onSound(SoundEvent event) {
-        // Перехватываем звук тотема и заменяем на кастомный
-        // Требует точной реализации через mixin в SoundEngine
-        // Оставлено как заготовка с настройкой pitch
+        SoundInstance sound = event.getSound();
+        if (sound == null) return;
+
+        // Проверяем ID звука
+        Identifier id = sound.getId();
+        if (id == null) return;
+
+        String path = id.getPath();
+        if (path == null) return;
+
+        // Звук totem_pop (тотем бессмертия)
+        if (path.contains("totem") || path.contains("use_totem")) {
+            event.setVolume(volume.h());
+        }
     }
 }

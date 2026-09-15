@@ -6,7 +6,6 @@ import laura.core.Module;
 import laura.core.ModuleRegister;
 import laura.event.TickEvent;
 import laura.setting.SliderSetting;
-import laura.util.ChatUtil;
 import net.minecraft.client.MinecraftClient;
 
 /**

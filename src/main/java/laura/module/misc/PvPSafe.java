@@ -4,15 +4,18 @@ import laura.core.Category;
 import laura.core.EventTarget;
 import laura.core.Module;
 import laura.core.ModuleRegister;
+import laura.event.PacketEvent;
 import laura.event.TickEvent;
-import net.minecraft.client.MinecraftClient;
+import laura.util.ChatUtil;
+import net.minecraft.network.packet.s2c.play.HealthUpdateS2CPacket;
 
 /**
  * PvPSafe (из WildClient)
  * <p>
- * Защищает от выхода с сервера во время Combat Log (когда ты в бою).
- * Если игрок пытается выйти (через меню) во время боя, модуль
- * блокирует выход и показывает уведомление.
+ * Защищает от Combat Log: если игрок в бою (получал урон последние 10 секунд),
+ * блокирует кнопки "Disconnect" / "Back to Title Screen" в игровом меню.
+ * <p>
+ * Хук на disconnect реализован через PvPSafeMixin (см. platform.inject.mixin.PvPSafeMixin).
  */
 @ModuleRegister(
         name = "PvPSafe",
@@ -24,10 +27,40 @@ public class PvPSafe extends Module {
     private static final long COMBAT_TIMEOUT_MS = 10_000L; // 10 секунд после урона
 
     @EventTarget
+    public void onPacket(PacketEvent event) {
+        if (event.getType() != PacketEvent.Type.RECEIVE) return;
+        if (!(event.getPacket() instanceof HealthUpdateS2CPacket packet)) return;
+
+        // Если новое HP меньше предыдущего — игрок получил урон
+        float newHp = packet.health();
+        // Сравниваем с текущим HP игрока (если доступен)
+        if (mc.player != null && newHp < mc.player.getHealth()) {
+            lastDamageTime = System.currentTimeMillis();
+        } else if (newHp > 0 && mc.player != null && newHp < mc.player.getMaxHealth()) {
+            // Любое обновление HP = возможный урон
+            lastDamageTime = System.currentTimeMillis();
+        }
+    }
+
+    @EventTarget
     public void onTick(TickEvent event) {
-        // Здесь должна быть логика отслеживания получения урона
-        // и блокировки выхода через mixin в disconnect.
-        // Это требует mixin, поэтому оставлено как заглушка с готовой структурой.
+        // При включении модуля в бою — сразу отмечаем время
+        if (mc.player != null && mc.player.getHealth() < mc.player.getMaxHealth()) {
+            lastDamageTime = System.currentTimeMillis();
+        }
+    }
+
+    @Override
+    public void b() {
+        super.b();
+        lastDamageTime = System.currentTimeMillis();
+        ChatUtil.sendMessage("PvPSafe", "Активен — защита от Combat Log");
+    }
+
+    @Override
+    public void c() {
+        super.c();
+        ChatUtil.sendMessage("PvPSafe", "Выключен");
     }
 
     public boolean isInCombat() {
