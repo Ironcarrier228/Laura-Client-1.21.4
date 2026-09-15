@@ -1,7 +1,6 @@
 package laura.module.misc;
 
 import laura.core.Category;
-import laura.core.Module;
 import laura.core.ModuleRegister;
 import laura.setting.ModeSetting;
 
@@ -41,6 +40,6 @@ public class GuiSelector extends Module {
      * Используется в Laura.java (см. a(KeyEvent)).
      */
     public String getSelectedStyle() {
-        return this.style.l();
+        return this.style.h();
     }
 }
