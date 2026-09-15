@@ -31,13 +31,10 @@ public class PvPSafe extends Module {
         if (event.getType() != PacketEvent.Type.RECEIVE) return;
         if (!(event.getPacket() instanceof HealthUpdateS2CPacket packet)) return;
 
+        // HealthUpdateS2CPacket в Minecraft 1.21 имеет public final поле 'health'
         // Если новое HP меньше предыдущего — игрок получил урон
-        float newHp = packet.health();
-        // Сравниваем с текущим HP игрока (если доступен)
-        if (mc.player != null && newHp < mc.player.getHealth()) {
-            lastDamageTime = System.currentTimeMillis();
-        } else if (newHp > 0 && mc.player != null && newHp < mc.player.getMaxHealth()) {
-            // Любое обновление HP = возможный урон
+        if (mc.player == null) return;
+        if (packet.health < mc.player.getHealth()) {
             lastDamageTime = System.currentTimeMillis();
         }
     }
