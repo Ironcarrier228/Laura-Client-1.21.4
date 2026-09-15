@@ -85,7 +85,7 @@ public class ClickGuiScreen extends Screen {
         this.openAnimation.a(true);
         this.openAnimation.a(0.0F, 1.0F, 0.4F, EasingList.h, delta);
 
-        this.searchBarAnimation.a(this.searchActive ? 1.0F : 0.0F, 0.32F, EasingList.h, delta);
+        this.searchBarAnimation.a(this.searchActive ? 1.0F : 0.0F, 0.32F, 0.4F, EasingList.h, delta);
 
         float t = this.openAnimation.c();
         if (t <= 0.001F) return;
@@ -118,7 +118,7 @@ public class ClickGuiScreen extends Screen {
             for (Category cat : Category.values()) {
                 float colX = containerX + idx * (COLUMN_WIDTH + COLUMN_GAP);
                 float colY = containerY;
-                renderColumnHeader(draw2d, ctx.getMatrices(), colX, colY, COLUMN_WIDTH, cat, t);
+                renderColumnHeader(draw2d, ctx, ctx.getMatrices(), colX, colY, COLUMN_WIDTH, cat, t);
                 idx++;
             }
 
@@ -141,7 +141,7 @@ public class ClickGuiScreen extends Screen {
         super.render(ctx, mouseX, mouseY, delta);
     }
 
-    private void renderColumnHeader(Draw2DProcessor draw2d, net.minecraft.client.util.math.MatrixStack matrices, float x, float y, float w, Category cat, float t) {
+    private void renderColumnHeader(Draw2DProcessor draw2d, DrawContext ctx, net.minecraft.client.util.math.MatrixStack matrices, float x, float y, float w, Category cat, float t) {
         int headerBg = ColorUtil.applyAlphaToColor(0xFF1A2050, (int)(220 * t));
         draw2d.a(matrices, x, y, w, COLUMN_HEADER_HEIGHT, 6.0F, headerBg);
 
