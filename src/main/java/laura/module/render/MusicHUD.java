@@ -51,7 +51,6 @@ public class MusicHUD extends Module {
     private static final String SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
     private static final String WOLFXSPOTIFY_BASE = "https://spotify.xwolf.space/api";
     private static final String YT_INNERTUBE_URL = "https://music.youtube.com/youtubei/v1/search";
-    private static final String YT_INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
     private static final long TOKEN_REFRESH_MARGIN_MS = 30_000L;
 
     private static final String MODE_YOUTUBE = "YouTube Music";
@@ -73,6 +72,7 @@ public class MusicHUD extends Module {
     private final BooleanSetting pinned = new BooleanSetting("Закрепить", false);
     private final BooleanSetting showCover = new BooleanSetting("Обложка", true);
     private final BooleanSetting showTimes = new BooleanSetting("Время трека", true);
+    private final StringSetting youtubeApiKey = new StringSetting("YouTube API Key", "");
     private final StringSetting youtubeQuery = new StringSetting("YouTube запрос", "");
     private final ColorSetting backgroundColor = new ColorSetting("Цвет фона", Integer.valueOf(ColorUtil.convertToARGB(18, 20, 26, 255)));
     private final ColorSetting accentColor = new ColorSetting("Акцент", Integer.valueOf(ColorUtil.convertToARGB(30, 215, 96, 255)));
@@ -129,7 +129,7 @@ public class MusicHUD extends Module {
         this.freeX.a(() -> this.positionMode.c().equals(MODE_FREE));
         this.freeY.a(() -> this.positionMode.c().equals(MODE_FREE));
         a(this.source, this.positionMode, this.corner, this.freeX, this.freeY, this.scale, this.hideDelay, this.pollInterval,
-                this.animSpeed, this.pinned, this.showCover, this.showTimes, this.youtubeQuery, this.backgroundColor, this.accentColor,
+                this.animSpeed, this.pinned, this.showCover, this.showTimes, this.youtubeApiKey, this.youtubeQuery, this.backgroundColor, this.accentColor,
                 this.textColor, this.subTextColor, this.clientId, this.clientSecret, this.refreshTokenSetting,
                 this.testConnection, this.playPauseBind, this.nextBind, this.previousBind);
     }
@@ -400,7 +400,7 @@ public class MusicHUD extends Module {
         if (src.equals(MODE_WOLFX)) {
             return "wolfXspotify не требует ключей — просто выберите источник";
         } else if (src.equals(MODE_YOUTUBE)) {
-            return "Введите название трека для поиска";
+            return "Введите YouTube API Key и название трека";
         } else if (src.equals(MODE_SOUNDCLOUD)) {
             return "SoundCloud не требует ключей — просто выберите источник";
         } else {
@@ -602,14 +602,21 @@ public class MusicHUD extends Module {
 
     private void pollYouTubeMusic() throws Exception {
         String query = this.youtubeQuery.c();
+        String apiKey = this.youtubeApiKey.c();
         if (query.isBlank()) {
             this.state = State.SETUP;
             this.track = null;
             this.errorMessage = "";
             return;
         }
+        if (apiKey.isBlank()) {
+            this.state = State.SETUP;
+            this.track = null;
+            this.errorMessage = "Введите YouTube API Key";
+            return;
+        }
         String jsonBody = "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"2.20250101.00.00\",\"hl\":\"ru\",\"gl\":\"RU\"}},\"query\":\"" + escapeJson(query) + "\"}";
-        HttpRequest request = HttpRequest.newBuilder(URI.create(YT_INNERTUBE_URL + "?key=" + YT_INNERTUBE_KEY))
+        HttpRequest request = HttpRequest.newBuilder(URI.create(YT_INNERTUBE_URL + "?key=" + apiKey))
                 .timeout(Duration.ofSeconds(8))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
