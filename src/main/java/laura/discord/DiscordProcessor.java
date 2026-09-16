@@ -101,6 +101,9 @@ public class DiscordProcessor extends BaseProcessor {
 
     private void updateActivity(DiscordIPC session, long startedAt) throws IOException {
         String username = "Unknown";
+        String server = "В меню";
+        int fps = 0;
+        
         try {
             if (Laura.getInstance() != null && Laura.getInstance().g() != null) {
                 String u = Laura.getInstance().g().username();
@@ -111,25 +114,42 @@ public class DiscordProcessor extends BaseProcessor {
         } catch (Exception ignored) {
         }
 
-        String buildType = BuildInfo.type();
         try {
-            if (Laura.getInstance() != null && Laura.getInstance().c() != null) {
-                buildType = "development";
+            net.minecraft.client.MinecraftClient mc = net.minecraft.client.MinecraftClient.getInstance();
+            if (mc != null) {
+                fps = mc.getCurrentFps();
+                if (mc.getCurrentServerEntry() != null) {
+                    server = mc.getCurrentServerEntry().address;
+                } else if (mc.isInSingleplayer()) {
+                    server = "Одиночная игра";
+                } else if (mc.world == null) {
+                    server = "В меню";
+                } else {
+                    server = "Minecraft";
+                }
             }
         } catch (Exception ignored) {
         }
 
-        // Иконка — наша (assets/laura/icon.png из репозитория), старое фото imgur удалено.
-        // Discord поддерживает https URL как ключ largeImage (опция external images);
-        // если нужен вариант для всех клиентов — загрузите иконку в портале разработчика
-        // и замените ICON_URL на имя ассета.
-        // Кнопки-ссылки не работают через Discord IPC (только через Gateway API),
-        // поэтому добавляем GitHub-ссылку в state.
+        String buildType = BuildInfo.type();
+        try {
+            if (Laura.getInstance() != null && Laura.getInstance().c() != null) {
+                buildType = "Dev";
+            } else {
+                buildType = "v" + BuildInfo.type();
+            }
+        } catch (Exception ignored) {
+        }
+
+        // Формируем красивый текст
+        String details = String.format("🎮 %s | %s", username, buildType);
+        String state = String.format("📡 %s | ⚡ %d FPS", server, fps);
+        
         Activity activity = new Activity.a()
                 .type(ActivityType.PLAYING)
-                .b("username: " + username + " | build: " + buildType) // details
-                .state("github.com/Ironcarrier228/Laura-Client-1.21.4") // state — GitHub ссылка
-                .largeImage(ICON_URL, "Laura Client")
+                .b(details) // details: username + build
+                .state(state) // state: server + FPS
+                .largeImage(ICON_URL, "Laura Client 1.21.4")
                 .startAt(startedAt)
                 .build();
 
