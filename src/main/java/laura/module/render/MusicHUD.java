@@ -608,11 +608,10 @@ public class MusicHUD extends Module {
             this.errorMessage = "";
             return;
         }
-        String jsonBody = "{\"context\":{\"client\":{\"clientName\":\"WEB_REMIX\",\"clientVersion\":\"0.1\",\"hl\":\"ru\",\"gl\":\"RU\"}},\"query\":\"" + escapeJson(query) + "\"}";
-        HttpRequest request = HttpRequest.newBuilder(URI.create(YT_INNERTUBE_URL + "?key=" + YT_INNERTUBE_KEY + "&alt=media"))
+        String jsonBody = "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"2.20250101.00.00\",\"hl\":\"ru\",\"gl\":\"RU\"}},\"query\":\"" + escapeJson(query) + "\"}";
+        HttpRequest request = HttpRequest.newBuilder(URI.create(YT_INNERTUBE_URL + "?key=" + YT_INNERTUBE_KEY))
                 .timeout(Duration.ofSeconds(8))
                 .header("Content-Type", "application/json")
-                .header("X-Goog-API-Key", YT_INNERTUBE_KEY)
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
         HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
