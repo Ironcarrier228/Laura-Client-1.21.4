@@ -550,6 +550,7 @@ public class MusicHUD extends Module {
             fail("Неверные данные Spotify. Проверьте Client ID, Secret и Refresh Token (HTTP " + this.lastTokenStatus + ")");
             return;
         }
+        HttpResponse<String> response = sendSpotifyPlayerRequest("GET", "/currently-playing", null);
         if (response.statusCode() == 401 && refreshSpotifyAccessToken(true)) {
             response = sendSpotifyPlayerRequest("GET", "/currently-playing", null);
         }
@@ -1102,6 +1103,10 @@ public class MusicHUD extends Module {
 
     private long optLong(JsonObject object, String key) {
         return object.has(key) && !object.get(key).isJsonNull() ? object.get(key).getAsLong() : 0L;
+    }
+
+    private String describeTokenError(int statusCode) {
+        return "HTTP " + statusCode;
     }
 
     private int lastTokenStatus;
