@@ -69,7 +69,7 @@ public class MusicHUD extends Module {
     private final SliderSetting hideDelay = new SliderSetting("Скрывать через (сек)", 6.0f, 2.0f, 30.0f, 0.5f);
     private final SliderSetting pollInterval = new SliderSetting("Опрос (сек)", 2.5f, 1.0f, 10.0f, 0.5f);
     private final SliderSetting animSpeed = new SliderSetting("Скорость анимации", 12.0f, 4.0f, 24.0f, 0.5f);
-    private final BooleanSetting pinned = new BooleanSetting("Закрепить", false);
+    private final BooleanSetting pinned = new BooleanSetting("Закрепить", true);
     private final BooleanSetting showCover = new BooleanSetting("Обложка", true);
     private final BooleanSetting showTimes = new BooleanSetting("Время трека", true);
     private final StringSetting youtubeApiKey = new StringSetting("YouTube API Key", "");
@@ -302,8 +302,7 @@ public class MusicHUD extends Module {
     private void drawPanel(Draw2DProcessor draw, MatrixStack matrices, Track current, float x, float y,
             float width, float height, float s, float alpha, long now) {
         int bg = ColorUtil.applyAlphaToColor(this.backgroundColor.c().intValue(), alpha * 0.92f);
-        int bgLight = ColorUtil.applyAlphaToColor(ColorUtil.b(this.backgroundColor.c().intValue(), 1.25f), alpha * 0.92f);
-        draw.a(matrices, x, y, width, height, 6.0f * s, bg, bg, bgLight, bgLight);
+        draw.a(matrices, x, y, width, height, 6.0f * s, bg, bg, bg, bg);
 
         float pad = 9.0f * s;
         float coverSize = 40.0f * s;
