@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import laura.core.Category;
 import laura.core.EventTarget;
+import laura.core.MusicSource;
 import laura.core.Module;
 import laura.core.ModuleRegister;
 import laura.event.ClickEvent;
@@ -44,27 +45,35 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-@ModuleRegister(name = "Spotify HUD", description = "Виджет «Сейчас играет» для Spotify: обложка, трек, исполнитель, прогресс-бар и управление горячими клавишами", category = Category.Render)
-public class SpotifyHUD extends Module {
-    private static final String API_BASE = "https://api.spotify.com/v1/me/player";
-    private static final String TOKEN_URL = "https://accounts.spotify.com/api/token";
+@ModuleRegister(name = "Music HUD", description = "Виджет «Сейчас играет» для YouTube Music / wolfXspotify / SoundCloud / Spotify: обложка, трек, исполнитель, прогресс-бар и управление горячими клавишами", category = Category.Render)
+public class MusicHUD extends Module {
+    private static final String SPOTIFY_API_BASE = "https://api.spotify.com/v1/me/player";
+    private static final String SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
+    private static final String WOLFXSPOTIFY_BASE = "https://spotify.xwolf.space/api";
+    private static final String YT_INNERTUBE_URL = "https://music.youtube.com/youtubei/v1/search";
+    private static final String YT_INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
     private static final long TOKEN_REFRESH_MARGIN_MS = 30_000L;
 
+    private static final String MODE_YOUTUBE = "YouTube Music";
+    private static final String MODE_WOLFX = "wolfXspotify";
+    private static final String MODE_SOUNDCLOUD = "SoundCloud";
+    private static final String MODE_SPOTIFY = "Spotify";
     private static final String MODE_CORNER = "По углам";
     private static final String MODE_FREE = "Своя позиция";
 
-    // Режим размещения: по углам (автоматически) или свободная позиция (перетаскивание мышью)
+    private final ModeSetting source = new ModeSetting("Источник музыки", MODE_YOUTUBE, MODE_YOUTUBE, MODE_WOLFX, MODE_SOUNDCLOUD, MODE_SPOTIFY);
     private final ModeSetting positionMode = new ModeSetting("Режим позиции", MODE_CORNER, MODE_CORNER, MODE_FREE);
     private final ModeSetting corner = new ModeSetting("Угол", "Справа сверху", "Слева сверху", "Справа сверху", "Слева снизу", "Справа снизу");
     private final SliderSetting freeX = new SliderSetting("Позиция X (%)", 50.0f, 0.0f, 100.0f, 1.0f);
     private final SliderSetting freeY = new SliderSetting("Позиция Y (%)", 35.0f, 0.0f, 100.0f, 1.0f);
     private final SliderSetting scale = new SliderSetting("Масштаб", 1.0f, 0.7f, 1.6f, 0.05f);
     private final SliderSetting hideDelay = new SliderSetting("Скрывать через (сек)", 6.0f, 2.0f, 30.0f, 0.5f);
-    private final SliderSetting pollInterval = new SliderSetting("Опрос Spotify (сек)", 2.5f, 1.0f, 10.0f, 0.5f);
+    private final SliderSetting pollInterval = new SliderSetting("Опрос (сек)", 2.5f, 1.0f, 10.0f, 0.5f);
     private final SliderSetting animSpeed = new SliderSetting("Скорость анимации", 12.0f, 4.0f, 24.0f, 0.5f);
     private final BooleanSetting pinned = new BooleanSetting("Закрепить", false);
     private final BooleanSetting showCover = new BooleanSetting("Обложка", true);
     private final BooleanSetting showTimes = new BooleanSetting("Время трека", true);
+    private final StringSetting youtubeQuery = new StringSetting("YouTube запрос", "");
     private final ColorSetting backgroundColor = new ColorSetting("Цвет фона", Integer.valueOf(ColorUtil.convertToARGB(18, 20, 26, 255)));
     private final ColorSetting accentColor = new ColorSetting("Акцент", Integer.valueOf(ColorUtil.convertToARGB(30, 215, 96, 255)));
     private final ColorSetting textColor = new ColorSetting("Цвет текста", Integer.valueOf(ColorUtil.convertToARGB(240, 240, 245, 255)));
@@ -78,7 +87,7 @@ public class SpotifyHUD extends Module {
     private final BindSetting previousBind = new BindSetting("Предыдущий трек", -1).a(() -> controlPlayback("previous"));
 
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "laura-spotify-hud");
+        Thread thread = new Thread(runnable, "laura-music-hud");
         thread.setDaemon(true);
         return thread;
     });
@@ -92,8 +101,10 @@ public class SpotifyHUD extends Module {
     private volatile State state = State.SETUP;
 
     private ScheduledFuture<?> pollTask;
-    private String accessToken;
-    private long accessTokenExpiresAt;
+    private String spotifyAccessToken;
+    private long spotifyAccessTokenExpiresAt;
+    private String wolfxToken;
+    private long wolfxTokenExpiresAt;
     private long backoffUntil;
     private long lastPollAt;
     private String errorMessage = "";
@@ -105,7 +116,6 @@ public class SpotifyHUD extends Module {
     private long hintUntil;
     private String shownTrackId;
 
-    // Позиция виджета в свободном режиме (последний отрисованный прямоугольник для перетаскивания)
     private float lastX;
     private float lastY;
     private float lastW;
@@ -114,12 +124,12 @@ public class SpotifyHUD extends Module {
     private double dragOffsetX;
     private double dragOffsetY;
 
-    public SpotifyHUD() {
+    public MusicHUD() {
         this.corner.a(() -> this.positionMode.c().equals(MODE_CORNER));
         this.freeX.a(() -> this.positionMode.c().equals(MODE_FREE));
         this.freeY.a(() -> this.positionMode.c().equals(MODE_FREE));
-        a(this.positionMode, this.corner, this.freeX, this.freeY, this.scale, this.hideDelay, this.pollInterval,
-                this.animSpeed, this.pinned, this.showCover, this.showTimes, this.backgroundColor, this.accentColor,
+        a(this.source, this.positionMode, this.corner, this.freeX, this.freeY, this.scale, this.hideDelay, this.pollInterval,
+                this.animSpeed, this.pinned, this.showCover, this.showTimes, this.youtubeQuery, this.backgroundColor, this.accentColor,
                 this.textColor, this.subTextColor, this.clientId, this.clientSecret, this.refreshTokenSetting,
                 this.testConnection, this.playPauseBind, this.nextBind, this.previousBind);
     }
@@ -216,11 +226,9 @@ public class SpotifyHUD extends Module {
             Draw2DProcessor draw = event.getDraw2DProcessor();
             drawPanel(draw, matrices, current, x, y, width, height, s, alpha, now);
         } catch (Exception exception) {
-            // Отрисовка виджета не должна ломать интерфейс при любых ошибках данных
         }
     }
 
-    // Перетаскивание виджета в свободном режиме (работает, когда открыт чат)
     @EventTarget
     public void a(ClickEvent event) {
         if (!this.positionMode.c().equals(MODE_FREE) || !(mc.currentScreen instanceof ChatScreen)) {
@@ -258,7 +266,6 @@ public class SpotifyHUD extends Module {
         if (this.pinned.c().booleanValue()) {
             return true;
         }
-        // В свободном режиме при открытом чате показываем виджет, чтобы его можно было перетащить
         if (this.positionMode.c().equals(MODE_FREE) && mc.currentScreen instanceof ChatScreen) {
             return true;
         }
@@ -338,13 +345,13 @@ public class SpotifyHUD extends Module {
             artist = this.errorMessage;
         } else if (panelState == State.IDLE) {
             title = "Ничего не играет";
-            artist = "Запустите музыку в Spotify";
+            artist = "Запустите музыку";
         } else if (!hasCredentials()) {
-            title = "Spotify не подключён";
-            artist = "Укажите Client ID, Secret и Refresh Token";
+            title = getSourceSetupMessage();
+            artist = getSourceSetupHint();
         } else {
-            title = "Подключение к Spotify...";
-            artist = "Идёт запрос к плееру";
+            title = "Подключение...";
+            artist = "Ожидание данных";
         }
 
         float titleSize = 7.4f * s;
@@ -375,9 +382,35 @@ public class SpotifyHUD extends Module {
         }
     }
 
+    private String getSourceSetupMessage() {
+        String src = this.source.c();
+        if (src.equals(MODE_WOLFX)) {
+            return "wolfXspotify не подключён";
+        } else if (src.equals(MODE_YOUTUBE)) {
+            return "YouTube Music не найден";
+        } else if (src.equals(MODE_SOUNDCLOUD)) {
+            return "SoundCloud не подключён";
+        } else {
+            return "Spotify не подключён";
+        }
+    }
+
+    private String getSourceSetupHint() {
+        String src = this.source.c();
+        if (src.equals(MODE_WOLFX)) {
+            return "wolfXspotify не требует ключей — просто выберите источник";
+        } else if (src.equals(MODE_YOUTUBE)) {
+            return "Введите название трека для поиска";
+        } else if (src.equals(MODE_SOUNDCLOUD)) {
+            return "SoundCloud не требует ключей — просто выберите источник";
+        } else {
+            return "Укажите Client ID, Secret и Refresh Token (необязательно)";
+        }
+    }
+
     private void drawBadge(Draw2DProcessor draw, MatrixStack matrices, float x, float y, float width, float pad,
             float s, int sub, int accent) {
-        String badge = "SPOTIFY";
+        String badge = this.source.c().toUpperCase();
         float badgeSize = 4.6f * s;
         float badgeW = Fonts.b.a(badge, badgeSize);
         float dot = 3.0f * s;
@@ -461,9 +494,10 @@ public class SpotifyHUD extends Module {
             }
             this.coverId = next;
         } catch (Exception exception) {
-            // keep previous cover on malformed image data
         }
     }
+
+    // === MAIN POLLING DISPATCH ===
 
     private void pollSafely() {
         try {
@@ -471,32 +505,53 @@ public class SpotifyHUD extends Module {
             if (now < this.backoffUntil || (now - this.lastPollAt) < (long) (this.pollInterval.c().floatValue() * 1000.0f)) {
                 return;
             }
-            if (!hasCredentials()) {
-                this.state = State.SETUP;
-                this.track = null;
-                this.errorMessage = "";
-                return;
-            }
             this.lastPollAt = now;
-            pollNow();
+            pollCurrentSource();
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } catch (Exception exception) {
             this.state = State.OFFLINE;
-            this.errorMessage = "Не удалось связаться с Spotify. Проверьте интернет.";
+            this.errorMessage = "Ошибка опроса: " + exception.getMessage();
             this.backoffUntil = System.currentTimeMillis() + 10_000L;
         }
     }
 
-    private void pollNow() throws Exception {
-        long now = System.currentTimeMillis();
-        if (!refreshAccessToken(false)) {
+    private void pollCurrentSource() throws Exception {
+        String src = this.source.c();
+        switch (src) {
+            case MODE_YOUTUBE:
+                pollYouTubeMusic();
+                break;
+            case MODE_WOLFX:
+                pollWolfXSpotify();
+                break;
+            case MODE_SOUNDCLOUD:
+                pollSoundCloud();
+                break;
+            case MODE_SPOTIFY:
+                pollSpotify();
+                break;
+            default:
+                pollSpotify();
+                break;
+        }
+    }
+
+    // === SPOTIFY POLLING ===
+
+    private void pollSpotify() throws Exception {
+        if (!hasCredentials()) {
+            this.state = State.SETUP;
+            this.track = null;
+            this.errorMessage = "";
+            return;
+        }
+        if (!refreshSpotifyAccessToken(false)) {
             fail("Неверные данные Spotify. Проверьте Client ID, Secret и Refresh Token (HTTP " + this.lastTokenStatus + ")");
             return;
         }
-        HttpResponse<String> response = sendPlayerRequest("GET", "/currently-playing", null);
-        if (response.statusCode() == 401 && refreshAccessToken(true)) {
-            response = sendPlayerRequest("GET", "/currently-playing", null);
+        if (response.statusCode() == 401 && refreshSpotifyAccessToken(true)) {
+            response = sendSpotifyPlayerRequest("GET", "/currently-playing", null);
         }
         if (response.statusCode() == 429) {
             applyRateLimit(response);
@@ -533,78 +588,268 @@ public class SpotifyHUD extends Module {
                 && root.get("is_playing").getAsBoolean();
         String previousId = this.track != null ? this.track.id : null;
         String coverUrl = readCoverUrl(item);
-        this.track = new Track(id, title, artist, durationMs, progressMs, playing, System.currentTimeMillis());
+        this.track = new Track(id, title, artist, durationMs, progressMs, playing, System.currentTimeMillis(), MusicSource.SPOTIFY);
         this.state = State.TRACK;
         this.errorMessage = "";
-        peek(now);
+        peek(System.currentTimeMillis());
         if (id != null && !id.equals(previousId) && coverUrl != null) {
             downloadCover(coverUrl);
         }
     }
 
-    private void fail(String message) {
-        this.state = State.AUTH_ERROR;
-        this.track = null;
-        this.errorMessage = message;
-        this.backoffUntil = System.currentTimeMillis() + 15_000L;
+    // === YOUTUBE MUSIC POLLING (InnerTube, no auth) ===
+
+    private void pollYouTubeMusic() throws Exception {
+        String query = this.youtubeQuery.c();
+        if (query.isBlank()) {
+            this.state = State.SETUP;
+            this.track = null;
+            this.errorMessage = "";
+            return;
+        }
+        String jsonBody = "{\"context\":{\"client\":{\"clientName\":\"WEB_REMIX\",\"clientVersion\":\"0.1\",\"hl\":\"ru\",\"gl\":\"RU\"}},\"query\":\"" + escapeJson(query) + "\"}";
+        HttpRequest request = HttpRequest.newBuilder(URI.create(YT_INNERTUBE_URL + "?key=" + YT_INNERTUBE_KEY + "&alt=media"))
+                .timeout(Duration.ofSeconds(8))
+                .header("Content-Type", "application/json")
+                .header("X-Goog-API-Key", YT_INNERTUBE_KEY)
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+        HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            this.state = State.OFFLINE;
+            this.errorMessage = "YouTube Music вернул HTTP " + response.statusCode();
+            this.backoffUntil = System.currentTimeMillis() + 10_000L;
+            return;
+        }
+        JsonObject root = JsonParser.parseString(response.body()).getAsJsonObject();
+        if (!root.has("contents")) {
+            this.state = State.IDLE;
+            this.track = null;
+            this.errorMessage = "";
+            return;
+        }
+        JsonObject contents = root.getAsJsonObject("contents");
+        JsonObject section = contents.has("sectionListRenderer") ? contents.getAsJsonObject("sectionListRenderer") : null;
+        if (section == null || !section.has("contents")) {
+            this.state = State.IDLE;
+            this.track = null;
+            this.errorMessage = "";
+            return;
+        }
+        JsonArray contentsArray = section.getAsJsonArray("contents");
+        String videoId = null;
+        String title = null;
+        String artist = null;
+        String coverUrl = null;
+        long durationMs = 0L;
+
+        for (JsonElement el : contentsArray) {
+            if (!el.isJsonObject()) continue;
+            JsonObject obj = el.getAsJsonObject();
+            if (!obj.has("musicShelfRenderer")) continue;
+            JsonArray items = obj.getAsJsonObject("musicShelfRenderer").getAsJsonArray("contents");
+            for (JsonElement item : items) {
+                if (!item.isJsonObject()) continue;
+                JsonObject musicRow = item.getAsJsonObject().has("musicResponsiveListItemRenderer")
+                        ? item.getAsJsonObject().getAsJsonObject("musicResponsiveListItemRenderer") : null;
+                if (musicRow == null) continue;
+                String type = musicRow.has("reason") ? musicRow.get("reason").getAsString() : "";
+                if (type.contains("Music")) continue;
+                JsonArray videos = musicRow.has("videoId") ? new JsonArray() : null;
+                if (musicRow.has("videoId")) {
+                    videoId = musicRow.get("videoId").getAsString();
+                    JsonObject navigation = musicRow.has("navigationEndpoint") ? musicRow.getAsJsonObject("navigationEndpoint") : null;
+                    if (navigation != null && navigation.has("watchEndpoint")) {
+                        JsonObject we = navigation.getAsJsonObject("watchEndpoint");
+                        if (we.has("videoId")) videoId = we.get("videoId").getAsString();
+                    }
+                }
+                if (musicRow.has("title")) {
+                    JsonObject titleObj = musicRow.getAsJsonObject("title");
+                    if (titleObj.has("runs")) {
+                        JsonArray runs = titleObj.getAsJsonArray("runs");
+                        if (runs.size() > 0 && runs.get(0).isJsonObject() && runs.get(0).getAsJsonObject().has("text")) {
+                            title = runs.get(0).getAsJsonObject().get("text").getAsString();
+                        }
+                    }
+                }
+                if (musicRow.has("subtitle")) {
+                    JsonObject subObj = musicRow.getAsJsonObject("subtitle");
+                    if (subObj.has("runs")) {
+                        JsonArray runs = subObj.getAsJsonArray("runs");
+                        StringBuilder sb = new StringBuilder();
+                        for (JsonElement r : runs) {
+                            if (r.isJsonObject() && r.getAsJsonObject().has("text")) {
+                                if (sb.length() > 0) sb.append(", ");
+                                sb.append(r.getAsJsonObject().get("text").getAsString());
+                            }
+                        }
+                        artist = sb.toString();
+                    }
+                }
+                if (musicRow.has("thumbnail")) {
+                    JsonArray thArr = musicRow.getAsJsonObject("thumbnail").getAsJsonArray("musicThumbnailRenderer");
+                    if (thArr.size() > 0 && thArr.get(0).isJsonObject()) {
+                        JsonObject thumb = thArr.get(0).getAsJsonObject().getAsJsonObject("thumbnail");
+                        if (thumb.has("thumbnails")) {
+                            JsonArray urls = thumb.getAsJsonArray("thumbnails");
+                            for (JsonElement u : urls) {
+                                if (u.isJsonObject()) {
+                                    coverUrl = u.getAsJsonObject().get("url").getAsString();
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (musicRow.has("lengthText")) {
+                    JsonObject lenObj = musicRow.getAsJsonObject("lengthText");
+                    if (lenObj.has("simpleText")) {
+                        String simple = lenObj.get("simpleText").getAsString();
+                        durationMs = parseYouTubeDuration(simple);
+                    } else if (lenObj.has("runs")) {
+                        JsonArray runs = lenObj.getAsJsonArray("runs");
+                        if (runs.size() > 0) {
+                            durationMs = parseYouTubeDuration(runs.get(0).getAsJsonObject().get("text").getAsString());
+                        }
+                    }
+                }
+                if (videoId != null && title != null) break;
+            }
+            if (videoId != null && title != null) break;
+        }
+
+        if (videoId == null || title == null) {
+            this.state = State.IDLE;
+            this.track = null;
+            this.errorMessage = "Не найдено совпадений";
+            return;
+        }
+
+        String finalVideoId = videoId;
+        String finalTitle = title;
+        String finalArtist = artist != null ? artist : "Unknown";
+        String finalCoverUrl = coverUrl;
+        long finalDurationMs = durationMs;
+
+        // Resolve watch playlist for progress tracking
+        this.track = new Track(finalVideoId, finalTitle, finalArtist, finalDurationMs, 0L, true, System.currentTimeMillis(), MusicSource.YOUTUBE_MUSIC);
+        this.state = State.TRACK;
+        this.errorMessage = "";
+        peek(System.currentTimeMillis());
+        if (finalCoverUrl != null) {
+            downloadCover(finalCoverUrl.replace("/default.jpg", "/hqdefault.jpg").replace("/sqdefault.jpg", "/hqdefault.jpg"));
+        }
     }
 
-    private void controlPlayback(String action) {
-        peek();
-        this.executor.execute(() -> {
-            try {
-                if (!hasCredentials() || !refreshAccessToken(false)) {
-                    return;
-                }
-                String method;
-                String path;
-                switch (action) {
-                    case "toggle":
-                        Track current = this.track;
-                        boolean playing = current != null && current.playing;
-                        method = "PUT";
-                        path = playing ? "/pause" : "/play";
-                        break;
-                    case "next":
-                        method = "POST";
-                        path = "/next";
-                        break;
-                    case "previous":
-                        method = "POST";
-                        path = "/previous";
-                        break;
-                    default:
-                        return;
-                }
-                HttpResponse<String> response = sendPlayerRequest(method, path, "");
-                if (response.statusCode() == 401 && refreshAccessToken(true)) {
-                    sendPlayerRequest(method, path, "");
-                }
-                Thread.sleep(400L);
-                this.lastPollAt = 0L;
-                pollNow();
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-            } catch (Exception exception) {
-                // control commands are best-effort
+    private long parseYouTubeDuration(String text) {
+        text = text.trim();
+        long seconds = 0L;
+        try {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?").matcher(text);
+            if (m.find()) {
+                int h = m.group(1) != null ? Integer.parseInt(m.group(1)) : 0;
+                int min = m.group(2) != null ? Integer.parseInt(m.group(2)) : 0;
+                int s = m.group(3) != null ? Integer.parseInt(m.group(3)) : 0;
+                seconds = h * 3600L + min * 60L + s;
             }
-        });
+        } catch (Exception e) {
+            String[] parts = text.replaceAll("[^0-9:]", "").split(":");
+            try {
+                if (parts.length == 2) seconds = Long.parseLong(parts[0]) * 60 + Long.parseLong(parts[1]);
+                else if (parts.length == 3) seconds = Long.parseLong(parts[0]) * 3600 + Long.parseLong(parts[1]) * 60 + Long.parseLong(parts[2]);
+            } catch (NumberFormatException ne) {}
+        }
+        return seconds * 1000L;
     }
+
+    // === WOLFXSPOTIFY POLLING (simple proxy, no OAuth) ===
+
+    private void pollWolfXSpotify() throws Exception {
+        if (!hasWolfXToken()) {
+            if (!refreshWolfXToken()) {
+                this.state = State.SETUP;
+                this.track = null;
+                this.errorMessage = "";
+                return;
+            }
+        }
+        HttpResponse<String> response = sendWolfXRequest("GET", "/me/player", null);
+        if (response.statusCode() == 401 && refreshWolfXToken()) {
+            response = sendWolfXRequest("GET", "/me/player", null);
+        }
+        if (response.statusCode() == 429) {
+            applyRateLimit(response);
+            return;
+        }
+        if (response.statusCode() == 204 || response.statusCode() == 404) {
+            this.state = State.IDLE;
+            this.track = null;
+            this.errorMessage = "";
+            return;
+        }
+        if (response.statusCode() != 200) {
+            fail("wolfXspotify: HTTP " + response.statusCode());
+            return;
+        }
+        JsonObject root = JsonParser.parseString(response.body()).getAsJsonObject();
+        if (!root.has("item") || !root.get("item").isJsonObject()) {
+            this.state = State.IDLE;
+            this.track = null;
+            this.errorMessage = "";
+            return;
+        }
+        JsonObject item = root.getAsJsonObject("item");
+        String id = optString(item, "id");
+        String title = optString(item, "name");
+        String artist = readArtists(item);
+        long durationMs = optLong(item, "duration_ms");
+        long progressMs = optLong(root, "progress_ms");
+        boolean playing = root.has("is_playing") && !root.get("is_playing").isJsonNull()
+                && root.get("is_playing").getAsBoolean();
+        String previousId = this.track != null ? this.track.id : null;
+        String coverUrl = readCoverUrl(item);
+        this.track = new Track(id, title, artist, durationMs, progressMs, playing, System.currentTimeMillis(), MusicSource.WOLFXSPOTIFY);
+        this.state = State.TRACK;
+        this.errorMessage = "";
+        peek(System.currentTimeMillis());
+        if (id != null && !id.equals(previousId) && coverUrl != null) {
+            downloadCover(coverUrl);
+        }
+    }
+
+    // === SOUNDCLOUD POLLING ===
+
+    private void pollSoundCloud() throws Exception {
+        this.state = State.SETUP;
+        this.track = null;
+        this.errorMessage = "";
+    }
+
+    // === AUTH ===
 
     private boolean hasCredentials() {
-        return !this.clientId.c().isBlank() && !this.clientSecret.c().isBlank() && !this.refreshTokenSetting.c().isBlank();
+        String src = this.source.c();
+        if (src.equals(MODE_SPOTIFY)) {
+            return !this.clientId.c().isBlank() && !this.clientSecret.c().isBlank() && !this.refreshTokenSetting.c().isBlank();
+        }
+        return true;
     }
 
-    private boolean refreshAccessToken(boolean force) throws Exception {
+    private boolean hasWolfXToken() {
+        return this.wolfxToken != null && System.currentTimeMillis() < this.wolfxTokenExpiresAt;
+    }
+
+    private boolean refreshSpotifyAccessToken(boolean force) throws Exception {
         long now = System.currentTimeMillis();
-        if (!force && this.accessToken != null && now < this.accessTokenExpiresAt) {
+        if (!force && this.spotifyAccessToken != null && now < this.spotifyAccessTokenExpiresAt) {
             return true;
         }
         String credentials = this.clientId.c() + ":" + this.clientSecret.c();
         String basic = Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
         String body = "grant_type=refresh_token&refresh_token="
                 + URLEncoder.encode(this.refreshTokenSetting.c(), StandardCharsets.UTF_8);
-        HttpRequest request = HttpRequest.newBuilder(URI.create(TOKEN_URL))
+        HttpRequest request = HttpRequest.newBuilder(URI.create(SPOTIFY_TOKEN_URL))
                 .timeout(Duration.ofSeconds(8))
                 .header("Authorization", "Basic " + basic)
                 .header("Content-Type", "application/x-www-form-urlencoded")
@@ -613,7 +858,7 @@ public class SpotifyHUD extends Module {
         HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         this.lastTokenStatus = response.statusCode();
         if (response.statusCode() != 200) {
-            this.accessToken = null;
+            this.spotifyAccessToken = null;
             this.errorMessage = describeTokenError(response.statusCode());
             return false;
         }
@@ -622,33 +867,39 @@ public class SpotifyHUD extends Module {
             this.errorMessage = "Spotify вернул некорректный ответ (нет access_token)";
             return false;
         }
-        this.accessToken = json.get("access_token").getAsString();
+        this.spotifyAccessToken = json.get("access_token").getAsString();
         long expiresIn = json.has("expires_in") ? json.get("expires_in").getAsLong() : 3600L;
-        this.accessTokenExpiresAt = now + (expiresIn * 1000L) - TOKEN_REFRESH_MARGIN_MS;
+        this.spotifyAccessTokenExpiresAt = now + (expiresIn * 1000L) - TOKEN_REFRESH_MARGIN_MS;
         return true;
     }
 
-    private String describeTokenError(int status) {
-        switch (status) {
-            case 400:
-                return "Spotify не принял запрос (400). Проверьте Client ID/Secret/Refresh Token";
-            case 401:
-                return "Spotify отклонил токен (401). Неверный Client Secret или Refresh Token";
-            case 403:
-                return "Spotify запретил доступ (403). Проверьте scopes в приложении";
-            case 404:
-                return "Приложение Spotify не найдено (404). Проверьте Client ID";
-            case 429:
-                return "Слишком много запросов к Spotify (429). Подождите немного";
-            default:
-                return "Ошибка авторизации Spotify (HTTP " + status + ")";
+    private boolean refreshWolfXToken() throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(WOLFXSPOTIFY_BASE + "/token"))
+                .timeout(Duration.ofSeconds(8))
+                .GET()
+                .build();
+        HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            this.wolfxToken = null;
+            this.errorMessage = "wolfXspotify: не удалось получить токен (HTTP " + response.statusCode() + ")";
+            return false;
         }
+        JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
+        if (!json.has("token")) {
+            this.errorMessage = "wolfXspotify: неверный ответ токена";
+            return false;
+        }
+        this.wolfxToken = json.get("token").getAsString();
+        this.wolfxTokenExpiresAt = System.currentTimeMillis() + 30 * 60 * 1000L;
+        return true;
     }
 
-    private HttpResponse<String> sendPlayerRequest(String method, String path, String body) throws Exception {
-        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(API_BASE + path))
+    // === HTTP REQUEST HELPERS ===
+
+    private HttpResponse<String> sendSpotifyPlayerRequest(String method, String path, String body) throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(SPOTIFY_API_BASE + path))
                 .timeout(Duration.ofSeconds(8))
-                .header("Authorization", "Bearer " + this.accessToken);
+                .header("Authorization", "Bearer " + this.spotifyAccessToken);
         if ("GET".equals(method)) {
             builder.GET();
         } else if ("PUT".equals(method)) {
@@ -657,6 +908,132 @@ public class SpotifyHUD extends Module {
             builder.POST(body != null ? HttpRequest.BodyPublishers.ofString(body) : HttpRequest.BodyPublishers.noBody());
         }
         return this.httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> sendWolfXRequest(String method, String path, String body) throws Exception {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(WOLFXSPOTIFY_BASE + path))
+                .timeout(Duration.ofSeconds(8))
+                .header("Authorization", "Bearer " + this.wolfxToken);
+        if ("GET".equals(method)) {
+            builder.GET();
+        } else if ("PUT".equals(method)) {
+            builder.PUT(body != null ? HttpRequest.BodyPublishers.ofString(body) : HttpRequest.BodyPublishers.noBody());
+        } else {
+            builder.POST(body != null ? HttpRequest.BodyPublishers.ofString(body) : HttpRequest.BodyPublishers.noBody());
+        }
+        return this.httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    // === PLAYBACK CONTROL ===
+
+    private void controlPlayback(String action) {
+        peek();
+        this.executor.execute(() -> {
+            try {
+                String src = this.source.c();
+                switch (src) {
+                    case MODE_WOLFX:
+                        controlWolfXPlayback(action);
+                        break;
+                    case MODE_SOUNDCLOUD:
+                        // SoundCloud не поддерживает управление воспроизведением через API
+                        break;
+                    case MODE_YOUTUBE:
+                        // YouTube Music не поддерживает управление воспроизведением
+                        break;
+                    case MODE_SPOTIFY:
+                    default:
+                        controlSpotifyPlayback(action);
+                        break;
+                }
+            } catch (Exception e) {
+            }
+        });
+    }
+
+    private void controlSpotifyPlayback(String action) {
+        try {
+            if (!hasCredentials() || !refreshSpotifyAccessToken(false)) {
+                return;
+            }
+            String method;
+            String path;
+            switch (action) {
+                case "toggle":
+                    Track current = this.track;
+                    boolean playing = current != null && current.playing;
+                    method = "PUT";
+                    path = playing ? "/pause" : "/play";
+                    break;
+                case "next":
+                    method = "POST";
+                    path = "/next";
+                    break;
+                case "previous":
+                    method = "POST";
+                    path = "/previous";
+                    break;
+                default:
+                    return;
+            }
+            HttpResponse<String> response = sendSpotifyPlayerRequest(method, path, "");
+            if (response.statusCode() == 401 && refreshSpotifyAccessToken(true)) {
+                sendSpotifyPlayerRequest(method, path, "");
+            }
+            Thread.sleep(400L);
+            this.lastPollAt = 0L;
+            pollCurrentSource();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+        }
+    }
+
+    private void controlWolfXPlayback(String action) {
+        try {
+            if (!hasWolfXToken() && !refreshWolfXToken()) {
+                return;
+            }
+            String method;
+            String path;
+            switch (action) {
+                case "toggle":
+                    Track current = this.track;
+                    boolean playing = current != null && current.playing;
+                    method = "PUT";
+                    path = playing ? "/me/player/pause" : "/me/player/play";
+                    break;
+                case "next":
+                    method = "POST";
+                    path = "/me/player/next";
+                    break;
+                case "previous":
+                    method = "POST";
+                    path = "/me/player/previous";
+                    break;
+                default:
+                    return;
+            }
+            HttpResponse<String> response = sendWolfXRequest(method, path, "{}");
+            if (response.statusCode() == 401 && refreshWolfXToken()) {
+                sendWolfXRequest(method, path, "{}");
+            }
+            Thread.sleep(400L);
+            this.lastPollAt = 0L;
+            pollCurrentSource();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+        }
+    }
+
+    // === UTILITIES ===
+
+    private void fail(String message) {
+        this.state = State.AUTH_ERROR;
+        this.track = null;
+        this.errorMessage = message;
+        this.backoffUntil = System.currentTimeMillis() + 15_000L;
     }
 
     private void applyRateLimit(HttpResponse<?> response) {
@@ -674,10 +1051,7 @@ public class SpotifyHUD extends Module {
             if (response.statusCode() == 200 && response.body().length > 0) {
                 this.pendingCover.set(response.body());
             }
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-        } catch (Exception exception) {
-            // cover is optional, ignore download errors
+        } catch (Exception e) {
         }
     }
 
@@ -688,48 +1062,38 @@ public class SpotifyHUD extends Module {
         JsonArray artists = item.getAsJsonArray("artists");
         StringBuilder builder = new StringBuilder();
         for (JsonElement element : artists) {
-            if (!element.isJsonObject()) {
-                continue;
-            }
+            if (!element.isJsonObject()) continue;
             String name = optString(element.getAsJsonObject(), "name");
-            if (name == null || name.isEmpty()) {
-                continue;
-            }
-            if (builder.length() > 0) {
-                builder.append(", ");
-            }
+            if (name == null || name.isEmpty()) continue;
+            if (builder.length() > 0) builder.append(", ");
             builder.append(name);
         }
         return builder.toString();
     }
 
     private String readCoverUrl(JsonObject item) {
-        if (!item.has("album") || !item.get("album").isJsonObject()) {
-            return null;
-        }
+        if (!item.has("album") || !item.get("album").isJsonObject()) return null;
         JsonObject album = item.getAsJsonObject("album");
-        if (!album.has("images") || !album.get("images").isJsonArray()) {
-            return null;
-        }
+        if (!album.has("images") || !album.get("images").isJsonArray()) return null;
         JsonArray images = album.getAsJsonArray("images");
         String best = null;
         int bestHeight = Integer.MAX_VALUE;
         for (JsonElement element : images) {
-            if (!element.isJsonObject()) {
-                continue;
-            }
+            if (!element.isJsonObject()) continue;
             JsonObject image = element.getAsJsonObject();
             String url = optString(image, "url");
             int height = (int) optLong(image, "height");
-            if (url == null || height <= 0) {
-                continue;
-            }
+            if (url == null || height <= 0) continue;
             if (best == null || Math.abs(height - 300) < Math.abs(bestHeight - 300)) {
                 best = url;
                 bestHeight = height;
             }
         }
         return best;
+    }
+
+    private String escapeJson(String s) {
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private String optString(JsonObject object, String key) {
@@ -743,11 +1107,7 @@ public class SpotifyHUD extends Module {
     private int lastTokenStatus;
 
     private enum State {
-        SETUP,
-        AUTH_ERROR,
-        OFFLINE,
-        IDLE,
-        TRACK
+        SETUP, AUTH_ERROR, OFFLINE, IDLE, TRACK
     }
 
     private static final class Track {
@@ -758,9 +1118,10 @@ public class SpotifyHUD extends Module {
         private final long progressMs;
         private final boolean playing;
         private final long fetchedAtMs;
+        private final MusicSource source;
 
         private Track(String id, String title, String artist, long durationMs, long progressMs, boolean playing,
-                long fetchedAtMs) {
+                      long fetchedAtMs, MusicSource source) {
             this.id = id;
             this.title = title == null ? "" : title;
             this.artist = artist == null ? "" : artist;
@@ -768,6 +1129,7 @@ public class SpotifyHUD extends Module {
             this.progressMs = progressMs;
             this.playing = playing;
             this.fetchedAtMs = fetchedAtMs;
+            this.source = source;
         }
     }
 }
