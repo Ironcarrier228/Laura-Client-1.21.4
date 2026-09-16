@@ -50,7 +50,7 @@ public class MusicHUD extends Module {
     private static final String SPOTIFY_API_BASE = "https://api.spotify.com/v1/me/player";
     private static final String SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
     private static final String WOLFXSPOTIFY_BASE = "https://spotify.xwolf.space/api";
-    private static final String YT_INNERTUBE_URL = "https://music.youtube.com/youtubei/v1/search";
+    private static final String YT_DATA_API_URL = "https://www.googleapis.com/youtube/v3/search";
     private static final long TOKEN_REFRESH_MARGIN_MS = 30_000L;
 
     private static final String MODE_YOUTUBE = "YouTube Music";
@@ -363,11 +363,11 @@ public class MusicHUD extends Module {
 
         float barHeight = 2.6f * s;
         float barY = (y + height) - pad - barHeight;
-        int barBg = ColorUtil.applyAlphaToColor(-1, alpha * 0.14f);
+        int barBg = ColorUtil.applyAlphaToColor(this.backgroundColor.c().intValue(), alpha * 0.14f);
         draw.a(matrices, textX, barY, textW, barHeight, barHeight * 0.5f, barBg);
         if (fraction > 0.0f) {
             float fillW = Math.max(barHeight, textW * fraction);
-            int accentLight = ColorUtil.applyAlphaToColor(ColorUtil.b(this.accentColor.c().intValue(), 1.3f), alpha);
+            int accentLight = accent;
             draw.a(matrices, textX, barY, fillW, barHeight, barHeight * 0.5f, accent, accentLight, accent, accentLight);
         }
         if (this.showTimes.c().booleanValue() && panelState == State.TRACK && current != null) {
@@ -614,11 +614,12 @@ public class MusicHUD extends Module {
             this.errorMessage = "Введите YouTube API Key";
             return;
         }
-        String jsonBody = "{\"context\":{\"client\":{\"clientName\":\"WEB\",\"clientVersion\":\"2.20250101.00.00\",\"hl\":\"ru\",\"gl\":\"RU\"}},\"query\":\"" + escapeJson(query) + "\"}";
-        HttpRequest request = HttpRequest.newBuilder(URI.create(YT_INNERTUBE_URL + "?key=" + apiKey))
+        String url = YT_DATA_API_URL + "?part=snippet&q=" + URLEncoder.encode(query, StandardCharsets.UTF_8)
+                + "&key=" + apiKey + "&type=video&videoCategoryId=10&maxResults=1";
+        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(8))
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .GET()
                 .build();
         HttpResponse<String> response = this.httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
@@ -628,123 +629,46 @@ public class MusicHUD extends Module {
             return;
         }
         JsonObject root = JsonParser.parseString(response.body()).getAsJsonObject();
-        if (!root.has("contents")) {
-            this.state = State.IDLE;
-            this.track = null;
-            this.errorMessage = "";
-            return;
-        }
-        JsonObject contents = root.getAsJsonObject("contents");
-        JsonObject section = contents.has("sectionListRenderer") ? contents.getAsJsonObject("sectionListRenderer") : null;
-        if (section == null || !section.has("contents")) {
-            this.state = State.IDLE;
-            this.track = null;
-            this.errorMessage = "";
-            return;
-        }
-        JsonArray contentsArray = section.getAsJsonArray("contents");
-        String videoId = null;
-        String title = null;
-        String artist = null;
-        String coverUrl = null;
-        long durationMs = 0L;
-
-        for (JsonElement el : contentsArray) {
-            if (!el.isJsonObject()) continue;
-            JsonObject obj = el.getAsJsonObject();
-            if (!obj.has("musicShelfRenderer")) continue;
-            JsonArray items = obj.getAsJsonObject("musicShelfRenderer").getAsJsonArray("contents");
-            for (JsonElement item : items) {
-                if (!item.isJsonObject()) continue;
-                JsonObject musicRow = item.getAsJsonObject().has("musicResponsiveListItemRenderer")
-                        ? item.getAsJsonObject().getAsJsonObject("musicResponsiveListItemRenderer") : null;
-                if (musicRow == null) continue;
-                String type = musicRow.has("reason") ? musicRow.get("reason").getAsString() : "";
-                if (type.contains("Music")) continue;
-                JsonArray videos = musicRow.has("videoId") ? new JsonArray() : null;
-                if (musicRow.has("videoId")) {
-                    videoId = musicRow.get("videoId").getAsString();
-                    JsonObject navigation = musicRow.has("navigationEndpoint") ? musicRow.getAsJsonObject("navigationEndpoint") : null;
-                    if (navigation != null && navigation.has("watchEndpoint")) {
-                        JsonObject we = navigation.getAsJsonObject("watchEndpoint");
-                        if (we.has("videoId")) videoId = we.get("videoId").getAsString();
-                    }
-                }
-                if (musicRow.has("title")) {
-                    JsonObject titleObj = musicRow.getAsJsonObject("title");
-                    if (titleObj.has("runs")) {
-                        JsonArray runs = titleObj.getAsJsonArray("runs");
-                        if (runs.size() > 0 && runs.get(0).isJsonObject() && runs.get(0).getAsJsonObject().has("text")) {
-                            title = runs.get(0).getAsJsonObject().get("text").getAsString();
-                        }
-                    }
-                }
-                if (musicRow.has("subtitle")) {
-                    JsonObject subObj = musicRow.getAsJsonObject("subtitle");
-                    if (subObj.has("runs")) {
-                        JsonArray runs = subObj.getAsJsonArray("runs");
-                        StringBuilder sb = new StringBuilder();
-                        for (JsonElement r : runs) {
-                            if (r.isJsonObject() && r.getAsJsonObject().has("text")) {
-                                if (sb.length() > 0) sb.append(", ");
-                                sb.append(r.getAsJsonObject().get("text").getAsString());
-                            }
-                        }
-                        artist = sb.toString();
-                    }
-                }
-                if (musicRow.has("thumbnail")) {
-                    JsonArray thArr = musicRow.getAsJsonObject("thumbnail").getAsJsonArray("musicThumbnailRenderer");
-                    if (thArr.size() > 0 && thArr.get(0).isJsonObject()) {
-                        JsonObject thumb = thArr.get(0).getAsJsonObject().getAsJsonObject("thumbnail");
-                        if (thumb.has("thumbnails")) {
-                            JsonArray urls = thumb.getAsJsonArray("thumbnails");
-                            for (JsonElement u : urls) {
-                                if (u.isJsonObject()) {
-                                    coverUrl = u.getAsJsonObject().get("url").getAsString();
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-                if (musicRow.has("lengthText")) {
-                    JsonObject lenObj = musicRow.getAsJsonObject("lengthText");
-                    if (lenObj.has("simpleText")) {
-                        String simple = lenObj.get("simpleText").getAsString();
-                        durationMs = parseYouTubeDuration(simple);
-                    } else if (lenObj.has("runs")) {
-                        JsonArray runs = lenObj.getAsJsonArray("runs");
-                        if (runs.size() > 0) {
-                            durationMs = parseYouTubeDuration(runs.get(0).getAsJsonObject().get("text").getAsString());
-                        }
-                    }
-                }
-                if (videoId != null && title != null) break;
-            }
-            if (videoId != null && title != null) break;
-        }
-
-        if (videoId == null || title == null) {
+        if (!root.has("items") || root.getAsJsonArray("items").size() == 0) {
             this.state = State.IDLE;
             this.track = null;
             this.errorMessage = "Не найдено совпадений";
             return;
         }
-
-        String finalVideoId = videoId;
-        String finalTitle = title;
-        String finalArtist = artist != null ? artist : "Unknown";
-        String finalCoverUrl = coverUrl;
-        long finalDurationMs = durationMs;
-
-        // Resolve watch playlist for progress tracking
-        this.track = new Track(finalVideoId, finalTitle, finalArtist, finalDurationMs, 0L, true, System.currentTimeMillis(), MusicSource.YOUTUBE_MUSIC);
-        this.state = State.TRACK;
-        this.errorMessage = "";
-        peek(System.currentTimeMillis());
-        if (finalCoverUrl != null) {
-            downloadCover(finalCoverUrl.replace("/default.jpg", "/hqdefault.jpg").replace("/sqdefault.jpg", "/hqdefault.jpg"));
+        JsonArray items = root.getAsJsonArray("items");
+        JsonObject first = items.get(0).getAsJsonObject();
+        JsonObject idObj = first.has("id") ? first.getAsJsonObject("id") : null;
+        if (idObj == null || !idObj.has("videoId")) {
+            this.state = State.IDLE;
+            this.track = null;
+            this.errorMessage = "Не найдено videoId";
+            return;
+        }
+        String videoId = idObj.get("videoId").getAsString();
+        JsonObject snippet = first.has("snippet") ? first.getAsJsonObject("snippet") : null;
+        String title = snippet != null && snippet.has("title") ? snippet.get("title").getAsString() : null;
+        String artist = snippet != null && snippet.has("channelTitle") ? snippet.get("channelTitle").getAsString() : "Unknown";
+        String coverUrl = null;
+        long durationMs = 0L;
+        if (snippet != null && snippet.has("thumbnails")) {
+            JsonObject th = snippet.getAsJsonObject("thumbnails");
+            JsonObject thumbObj = th.has("high") ? th.getAsJsonObject("high") : (th.has("default") ? th.getAsJsonObject("default") : null);
+            if (thumbObj != null && thumbObj.has("url")) {
+                coverUrl = thumbObj.get("url").getAsString();
+            }
+        }
+        if (videoId != null && title != null) {
+            this.track = new Track(videoId, title, artist, durationMs, 0L, true, System.currentTimeMillis(), MusicSource.YOUTUBE_MUSIC);
+            this.state = State.TRACK;
+            this.errorMessage = "";
+            peek(System.currentTimeMillis());
+            if (coverUrl != null) {
+                downloadCover(coverUrl);
+            }
+        } else {
+            this.state = State.IDLE;
+            this.track = null;
+            this.errorMessage = "Не найдено совпадений";
         }
     }
 
