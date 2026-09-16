@@ -123,23 +123,15 @@ public class DiscordProcessor extends BaseProcessor {
         // Discord поддерживает https URL как ключ largeImage (опция external images);
         // если нужен вариант для всех клиентов — загрузите иконку в портале разработчика
         // и замените ICON_URL на имя ассета.
+        // Кнопки-ссылки не работают через Discord IPC (только через Gateway API),
+        // поэтому добавляем GitHub-ссылку в state.
         Activity activity = new Activity.a()
                 .type(ActivityType.PLAYING)
-                .b("username: " + username) // details
-                .state("build: " + buildType) // state
+                .b("username: " + username + " | build: " + buildType) // details
+                .state("github.com/Ironcarrier228/Laura-Client-1.21.4") // state — GitHub ссылка
                 .largeImage(ICON_URL, "Laura Client")
                 .startAt(startedAt)
-                .c("Скачать", DOWNLOAD_URL)
-                .c("GitHub", GITHUB_URL)
                 .build();
-
-        // DEBUG: log full activity JSON to see what we're sending
-        String activityJson = activity.j().toString();
-        System.out.println("[DiscordRPC] Sending activity: " + activityJson);
-        System.out.println("[DiscordRPC] Buttons count: " + activity.h().map(List::size).orElse(0));
-        activity.h().ifPresent(btns -> btns.forEach(btn ->
-                System.out.println("[DiscordRPC] Button: " + btn.b() + " -> " + btn.c())
-        ));
 
         session.a(activity);
     }
