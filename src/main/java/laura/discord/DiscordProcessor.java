@@ -143,13 +143,22 @@ public class DiscordProcessor extends BaseProcessor {
 
         // Формируем красивый текст
         String details = String.format("🎮 %s | %s", username, buildType);
-        String state = String.format("📡 %s | ⚡ %d FPS", server, fps);
+        // Добавляем ссылку на GitHub в state (можно скопировать)
+        String state;
+        if (!server.equals("В меню")) {
+            state = String.format("📡 %s | ⚡ %d FPS", server, fps);
+        } else {
+            // В меню показываем ссылку на скачивание
+            state = "📥 github.com/Ironcarrier228/Laura-Client-1.21.4";
+        }
         
+        // Добавляем маленькую иконку с текстом-ссылкой (виден при наведении)
         Activity activity = new Activity.a()
                 .type(ActivityType.PLAYING)
                 .b(details) // details: username + build
-                .state(state) // state: server + FPS
+                .state(state) // state: server + FPS или ссылка
                 .largeImage(ICON_URL, "Laura Client 1.21.4")
+                .b(ICON_URL, "📥 Releases: github.com/Ironcarrier228/Laura-Client-1.21.4/releases") // small image с ссылкой на релизы
                 .startAt(startedAt)
                 .build();
 
