@@ -355,11 +355,11 @@ public class MusicHUD extends Module {
 
         float titleSize = 7.4f * s;
         float titleY = y + pad + 3.0f * s;
-        drawMarquee(Fonts.d, matrices, title, textX, titleY, titleSize, textW, text, 0.35f, now);
+        drawMarquee(Fonts.d, matrices, title, textX, titleY, titleSize, textW, text, 0.0f, now);
 
         float artistSize = 6.4f * s;
         float artistY = titleY + titleSize + 4.0f * s;
-        drawMarquee(Fonts.b, matrices, artist, textX, artistY, artistSize, textW, sub, 0.3f, now);
+        drawMarquee(Fonts.b, matrices, artist, textX, artistY, artistSize, textW, sub, 0.0f, now);
 
         float barHeight = 2.6f * s;
         float barY = (y + height) - pad - barHeight;
@@ -375,9 +375,9 @@ public class MusicHUD extends Module {
             float timeY = barY - timeSize - 2.0f * s;
             String elapsed = formatTime(progressMs);
             String total = formatTime(durationMs);
-            Fonts.b.a(matrices, elapsed, textX, timeY, timeSize, sub, 0.3f);
+            Fonts.b.a(matrices, elapsed, textX, timeY, timeSize, sub, 0.0f);
             float totalW = Fonts.b.a(total, timeSize);
-            Fonts.b.a(matrices, total, (textX + textW) - totalW, timeY, timeSize, sub, 0.3f);
+            Fonts.b.a(matrices, total, (textX + textW) - totalW, timeY, timeSize, sub, 0.0f);
         }
     }
 
@@ -415,7 +415,7 @@ public class MusicHUD extends Module {
         float dot = 3.0f * s;
         float badgeX = (x + width) - pad - badgeW;
         float badgeY = y + pad + 0.5f * s;
-        Fonts.b.a(matrices, badge, badgeX, badgeY, badgeSize, sub, 0.3f);
+        Fonts.b.a(matrices, badge, badgeX, badgeY, badgeSize, sub, 0.0f);
         draw.a(matrices, badgeX - dot - 3.0f * s, badgeY + 0.5f * s, dot, dot, dot * 0.5f, accent);
     }
 
